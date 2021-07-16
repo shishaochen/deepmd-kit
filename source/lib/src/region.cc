@@ -24,6 +24,7 @@ Region<FPTYPE>::
 template struct Region<double>;
 template struct Region<float>;
 
+// 计算由 boxt 内 3 组轴向量组成的平行六面体的体积（也是行列式），存储在 volume。
 template<typename FPTYPE>
 inline FPTYPE
 compute_volume(const FPTYPE * boxt)
@@ -38,6 +39,7 @@ compute_volume(const FPTYPE * boxt)
   return volume;
 }
 
+// 计算 boxt 作为 3*3 矩阵的逆矩阵，存储在 rec_boxt。
 template<typename FPTYPE>
 inline void
 compute_rec_boxt(
@@ -56,6 +58,7 @@ compute_rec_boxt(
   rec_boxt[2*3+1] =(-boxt[0*3+0]*boxt[1*3+2] + boxt[1*3+0]*boxt[0*3+2]) * volumei;
 }
 
+// 3*3 矩阵 i_t 乘以 3 维列向量 i_v，结果存储在 o_v 中。
 template<typename FPTYPE>
 inline void
 tensor_dot_vec (
@@ -68,6 +71,7 @@ tensor_dot_vec (
   o_v[2] = i_v[0] * i_t[2*3+0] + i_v[1] * i_t[2*3+1] + i_v[2] * i_t[2*3+2];
 }
 
+// 3 维行向量 i_v 乘以 3*3 矩阵 i_t，结果存储在 o_v 中。
 template<typename FPTYPE>
 inline void
 tensor_t_dot_vec (
@@ -80,6 +84,7 @@ tensor_t_dot_vec (
   o_v[2] = i_v[0] * i_t[0*3+2] + i_v[1] * i_t[1*3+2] + i_v[2] * i_t[2*3+2];
 }
 
+// 使用存有 3 个轴向量的 boxt 初始化模拟区域。
 template<typename FPTYPE>
 void
 deepmd::
@@ -91,6 +96,7 @@ init_region_cpu(
   compute_rec_boxt(region.rec_boxt, region.boxt);
 }
 
+// 透过模拟区域 region，将世界坐标 rp 转换成内部坐标 ri。
 template<typename FPTYPE>
 void
 deepmd::
@@ -102,6 +108,7 @@ convert_to_inter_cpu(
   tensor_dot_vec(ri, region.rec_boxt, rp);
 }
 
+// 透过模拟区域 region，将世界坐标 rp 转换成内部坐标 ri。
 template<typename FPTYPE>
 void
 deepmd::
@@ -113,6 +120,7 @@ convert_to_phys_cpu(
   tensor_t_dot_vec(rp, region.boxt, ri);
 }
 
+// 计算模拟区域 region 的体积。
 template<typename FPTYPE>
 FPTYPE
 deepmd::

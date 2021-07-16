@@ -8,6 +8,9 @@ enum {
   MAX_WARN_IDX_OUT_OF_BOUND = 10,
 };
 
+// 给定的格点 idx[0] idx[1] idx[2] 是否在模拟区域内。
+// nat_stt 模拟区域的起始格点编号。
+// nat_end 模拟区域的终止格点编号。
 bool 
 is_loc (const std::vector<int> & idx, 
 	const std::vector<int> & nat_stt,
@@ -19,6 +22,7 @@ is_loc (const std::vector<int> & idx,
   return ret;
 }
 
+// 将 Cell 的三维编号 idx 转换为全局唯一的编号。
 int 
 collapse_index (const std::vector<int> &	idx,
 		const std::vector<int> &	size)
@@ -37,6 +41,15 @@ expand_index (std::vector<int > &		o_idx,
   o_idx[1] = tmp1 - o_idx[0] * size[1];
 }
 
+// 构建 Cell 列表，存储在 clist 中。索引是 Cell 唯一编号，值是本 Cell 持有的所有原子编号。
+// coord 中是所有原子铺开的 3 维坐标。
+// nloc 目标原子数量。
+// nat_stt 模拟区域的起始格点编号。
+// nat_end 模拟区域的终止格点编号。
+// ext_stt 扩展区域的起始格点编号。
+// ext_end 扩展区域的终止格点编号。
+// region 是模拟区域的工具类。
+// global_grid 是模拟区域在 X Y Z 三个维度上的 Cell 数量。
 void 
 build_clist (std::vector<std::vector<int > > &	clist,
 	     const std::vector<double > &	coord,
@@ -79,20 +92,20 @@ build_clist (std::vector<std::vector<int > > &	clist,
     std::vector<int > idx(3);
     for (int dd = 0; dd < 3; ++dd){
       idx[dd] = (inter[dd] - nat_orig[dd]) / cell_size[dd];
-      if (inter[dd] - nat_orig[dd] < 0.) idx[dd] --;
+      if (inter[dd] - nat_orig[dd] < 0.) idx[dd] --;  // 始终向下取整，处理负数 case
       if (idx[dd] < nat_stt[dd]) {
-	if (count_warning_loc_idx_lower < MAX_WARN_IDX_OUT_OF_BOUND) {
-	  std::cerr << "# warning: loc idx out of lower bound (ignored if warned for more than " << MAX_WARN_IDX_OUT_OF_BOUND << " times) " << std::endl;
-	  count_warning_loc_idx_lower ++;
-	}	
-	idx[dd] = nat_stt[dd];
+        if (count_warning_loc_idx_lower < MAX_WARN_IDX_OUT_OF_BOUND) {
+          std::cerr << "# warning: loc idx out of lower bound (ignored if warned for more than " << MAX_WARN_IDX_OUT_OF_BOUND << " times) " << std::endl;
+          count_warning_loc_idx_lower ++;
+        }
+        idx[dd] = nat_stt[dd];
       }
       else if (idx[dd] >= nat_end[dd]) {
-	if (count_warning_loc_idx_upper < MAX_WARN_IDX_OUT_OF_BOUND) {
-	  std::cerr << "# warning: loc idx out of upper bound (ignored if warned for more than " << MAX_WARN_IDX_OUT_OF_BOUND << " times) " << std::endl;
-	  count_warning_loc_idx_upper ++;
-	}
-	idx[dd] = nat_end[dd] - 1;
+        if (count_warning_loc_idx_upper < MAX_WARN_IDX_OUT_OF_BOUND) {
+          std::cerr << "# warning: loc idx out of upper bound (ignored if warned for more than " << MAX_WARN_IDX_OUT_OF_BOUND << " times) " << std::endl;
+          count_warning_loc_idx_upper ++;
+        }
+        idx[dd] = nat_end[dd] - 1;
       }
       idx[dd] += idx_orig_shift[dd];
     }
@@ -106,21 +119,21 @@ build_clist (std::vector<std::vector<int > > &	clist,
       idx[dd] = (inter[dd] - nat_orig[dd]) / cell_size[dd];
       if (inter[dd] - nat_orig[dd] < 0.) idx[dd] --;
       if (idx[dd] < ext_stt[dd]) {
-	if (count_warning_ghost_idx_lower < MAX_WARN_IDX_OUT_OF_BOUND &&
-	    fabs((inter[dd] - nat_orig[dd]) - (ext_stt[dd] * cell_size[dd]))
-	    > fabs(ext_stt[dd] * cell_size[dd]) * std::numeric_limits<double>::epsilon() * 5.
-	    ) {
-	  std::cerr << "# warning: ghost idx out of lower bound (ignored if warned for more than " << MAX_WARN_IDX_OUT_OF_BOUND << " times) " << std::endl;
-	  count_warning_ghost_idx_lower ++;
-	}
-	idx[dd] = ext_stt[dd];
+        if (count_warning_ghost_idx_lower < MAX_WARN_IDX_OUT_OF_BOUND &&
+            fabs((inter[dd] - nat_orig[dd]) - (ext_stt[dd] * cell_size[dd]))
+            > fabs(ext_stt[dd] * cell_size[dd]) * std::numeric_limits<double>::epsilon() * 5.
+            ) {
+          std::cerr << "# warning: ghost idx out of lower bound (ignored if warned for more than " << MAX_WARN_IDX_OUT_OF_BOUND << " times) " << std::endl;
+          count_warning_ghost_idx_lower ++;
+        }
+        idx[dd] = ext_stt[dd];
       }
       else if (idx[dd] >= ext_end[dd]) {
-	if (count_warning_ghost_idx_upper < MAX_WARN_IDX_OUT_OF_BOUND) {
-	  std::cerr << "# warning: ghost idx out of upper bound (ignored if warned for more than " << MAX_WARN_IDX_OUT_OF_BOUND << " times) " << std::endl;
-	  count_warning_ghost_idx_upper ++;
-	}
-	idx[dd] = ext_end[dd] - 1;
+        if (count_warning_ghost_idx_upper < MAX_WARN_IDX_OUT_OF_BOUND) {
+          std::cerr << "# warning: ghost idx out of upper bound (ignored if warned for more than " << MAX_WARN_IDX_OUT_OF_BOUND << " times) " << std::endl;
+          count_warning_ghost_idx_upper ++;
+        }
+	      idx[dd] = ext_end[dd] - 1;
       }
       idx[dd] += idx_orig_shift[dd];
     }
@@ -184,7 +197,19 @@ build_clist (std::vector<std::vector<int > > &	clist,
   }
 }
 
-
+// 给定起止的 2 个 Cells，为起始 Cell 中的每个原子构建邻居列表。
+// 输出：
+// - nlist0 按截断半径 rc0 得到的邻居列表。
+// - nlist1 按截断半径 rc1 得到的邻居列表，不包含 nlist0 的内容。
+// 输入：
+// - cidx 起始的 Cell 编号。
+// - tidx 终止的 Cell 编号。
+// - clist Cell 列表。
+// coord 中是所有原子铺开的 3 维坐标。
+// - rc02 较小的截断半径，取平方。
+// - rc12 较大的截断半径，取平方。
+// - shift
+// - boxt
 void
 build_nlist_cell (std::vector<std::vector<int> > &	nlist0,
 		  std::vector<std::vector<int> > &	nlist1,
@@ -205,22 +230,22 @@ build_nlist_cell (std::vector<std::vector<int> > &	nlist0,
     // loop over t (target) cell
     for (unsigned jj = 0; jj < clist[tidx].size(); ++jj){
       int j_idx = clist[tidx][jj];
-      if (cidx == tidx && j_idx <= i_idx) continue;
+      if (cidx == tidx && j_idx <= i_idx) continue;  // 避免算 2 遍
       double diff[3];
       for (int dd0 = 0; dd0 < 3; ++dd0) {
-	diff[dd0] = coord[i_idx*3 + dd0] - coord[j_idx*3 + dd0];
-	for (int dd1 = 0; dd1 < 3; ++dd1) {
-	  diff[dd0] += shift[dd1] * boxt[3*dd1+dd0];
-	}
+        diff[dd0] = coord[i_idx*3 + dd0] - coord[j_idx*3 + dd0];
+        for (int dd1 = 0; dd1 < 3; ++dd1) {
+          diff[dd0] += shift[dd1] * boxt[3*dd1+dd0];
+        }
       }
       double r2 = deepmd::dot3(diff, diff);
       if (r2 < rc02) {
-	if (i_idx < nloc) nlist0[i_idx].push_back (j_idx);
-	if (j_idx < nloc) nlist0[j_idx].push_back (i_idx);
+        if (i_idx < nloc) nlist0[i_idx].push_back (j_idx);
+        if (j_idx < nloc) nlist0[j_idx].push_back (i_idx);
       }
       else if (r2 < rc12) {
-	if (i_idx < nloc) nlist1[i_idx].push_back (j_idx);
-	if (j_idx < nloc) nlist1[j_idx].push_back (i_idx);
+        if (i_idx < nloc) nlist1[i_idx].push_back (j_idx);
+        if (j_idx < nloc) nlist1[j_idx].push_back (i_idx);
       }      
     }
   }
@@ -297,7 +322,7 @@ build_nlist (std::vector<std::vector<int > > &	nlist0,
 
   // compute number of iter according to the cut-off
   assert (rc0 <= rc1);
-  std::vector<int> niter (3);
+  std::vector<int> niter (3);  // 几个 Cell 可以包含 rc1
   double to_face [3];
   region.toFaceDistance (to_face);
   for (int dd = 0; dd < 3; ++dd){
@@ -341,21 +366,21 @@ build_nlist (std::vector<std::vector<int > > &	nlist0,
   for (cidx[0] = nat_stt[0]; cidx[0] < nat_end[0]; ++cidx[0]){
     for (cidx[1] = nat_stt[1]; cidx[1] < nat_end[1]; ++cidx[1]){
       for (cidx[2] = nat_stt[2]; cidx[2] < nat_end[2]; ++cidx[2]){
-	std::vector<int> mcidx(3);
-	for (int dd = 0; dd < 3; ++dd) mcidx[dd] = cidx[dd] + idx_orig_shift[dd];
-	int clp_cidx = collapse_index (mcidx, ext_ncell);
-	std::vector<int> tidx(3);
-	for (tidx[0] = cidx[0] - niter[0]; tidx[0] < cidx[0] + niter[0] + 1; ++tidx[0]) {
-	  for (tidx[1] = cidx[1] - niter[1]; tidx[1] < cidx[1] + niter[1] + 1; ++tidx[1]) {
-	    for (tidx[2] = cidx[2] - niter[2]; tidx[2] < cidx[2] + niter[2] + 1; ++tidx[2]) {
-	      std::vector<int> mtidx(3);
-	      for (int dd = 0; dd < 3; ++dd) mtidx[dd] = tidx[dd] + idx_orig_shift[dd];
-	      int clp_tidx = collapse_index (mtidx, ext_ncell);
-	      if (is_loc(tidx, nat_stt, nat_end) && clp_tidx < clp_cidx) continue;
-	      build_nlist_cell (nlist0, nlist1, clp_cidx, clp_tidx, clist, coord, rc02, rc12);
-	    }
-	  }
-	}
+        std::vector<int> mcidx(3);
+        for (int dd = 0; dd < 3; ++dd) mcidx[dd] = cidx[dd] + idx_orig_shift[dd];
+        int clp_cidx = collapse_index (mcidx, ext_ncell);
+        std::vector<int> tidx(3);
+        for (tidx[0] = cidx[0] - niter[0]; tidx[0] < cidx[0] + niter[0] + 1; ++tidx[0]) {
+          for (tidx[1] = cidx[1] - niter[1]; tidx[1] < cidx[1] + niter[1] + 1; ++tidx[1]) {
+            for (tidx[2] = cidx[2] - niter[2]; tidx[2] < cidx[2] + niter[2] + 1; ++tidx[2]) {
+              std::vector<int> mtidx(3);
+              for (int dd = 0; dd < 3; ++dd) mtidx[dd] = tidx[dd] + idx_orig_shift[dd];
+              int clp_tidx = collapse_index (mtidx, ext_ncell);
+              if (is_loc(tidx, nat_stt, nat_end) && clp_tidx < clp_cidx) continue;
+              build_nlist_cell (nlist0, nlist1, clp_cidx, clp_tidx, clist, coord, rc02, rc12);
+            }
+          }
+        }
       }
     }
   }
@@ -625,6 +650,10 @@ build_nlist (std::vector<std::vector<int > > & nlist0,
   }
 }
 
+// 返回移动次数，可以将 idx 处的原子挪入模拟区域内，一次移动的距离是模拟区域在对应轴向的长度。
+// 周期性条件下，等价于跑出左边界的原子，从右边界补回来。
+// idx 是以 cell 为单位的偏移编号，负数在模拟区域下界外。
+// ncell 是模拟区域的 cell 数量。
 static int compute_pbc_shift (int idx, 
 			      int ncell)
 {
@@ -655,6 +684,8 @@ copy_coord (std::vector<double > & out_c,
   int nloc = in_c.size() / 3;
   assert(nloc == in_t.size());
 
+  // to_face[dd] <= rc，此时模拟区域每个轴向内 1 个 cell，边界要补 2 个 cell
+  // to_face[dd] > rc，此时每个轴向内多个 cell，边界要补 1 个
   ncell.resize(3);
   ngcell.resize(3);
   double to_face [3];
@@ -701,43 +732,43 @@ copy_coord (std::vector<double > & out_c,
       pbc_shift_d[1] = pbc_shift[1];
       jj[1] = ii[1] + pbc_shift[1] * ncell[1];
       for (ii[2] = -ngcell[2]; ii[2] < ncell[2] + ngcell[2]; ++ii[2]){
-	pbc_shift[2] = compute_pbc_shift(ii[2], ncell[2]);
-	pbc_shift_d[2] = pbc_shift[2];
-	jj[2] = ii[2] + pbc_shift[2] * ncell[2];
-	// local cell, continue
-	if (ii[0] >= 0 && ii[0] < ncell[0] &&
-	    ii[1] >= 0 && ii[1] < ncell[1] &&
-	    ii[2] >= 0 && ii[2] < ncell[2] ){
-	  continue;
-	}
-	double shift_v [3];
-	region.inter2Phys(shift_v, pbc_shift_d);
-	int cell_idx = collapse_index(jj, ncell);
-	std::vector<int> & cur_clist = clist[cell_idx];
-	for (int kk = 0; kk < cur_clist.size(); ++kk){
-	  int p_idx = cur_clist[kk];
-	  double shifted_coord [3];
-	  out_c.push_back(in_c[p_idx*3+0] - shift_v[0]);
-	  out_c.push_back(in_c[p_idx*3+1] - shift_v[1]);
-	  out_c.push_back(in_c[p_idx*3+2] - shift_v[2]);
-	  out_t.push_back(in_t[p_idx]);
-	  mapping.push_back(p_idx);
-	  // double phys[3];
-	  // for (int dd = 0; dd < 3; ++dd) phys[dd] = in_c[p_idx*3+dd] - shift_v[dd];
-	  // double inter[3];
-	  // region.phys2Inter(inter, phys);
-	  // if (  inter[0] >= 0 && inter[0] < 1 &&
-	  // 	inter[1] >= 0 && inter[1] < 1 &&
-	  // 	inter[2] >= 0 && inter[2] < 1 ){
-	  //   std::cout << out_c.size()  / 3 << " "
-	  // 	 << inter[0] << " " 
-	  // 	 << inter[1] << " " 
-	  // 	 << inter[2] << " " 
-	  // 	 << std::endl;
-	  //   std::cout << "err here inner" << std::endl;
-	  //   exit(1);
-	  // }	  
-	}
+        pbc_shift[2] = compute_pbc_shift(ii[2], ncell[2]);
+        pbc_shift_d[2] = pbc_shift[2];
+        jj[2] = ii[2] + pbc_shift[2] * ncell[2];
+        // local cell, continue
+        if (ii[0] >= 0 && ii[0] < ncell[0] &&
+            ii[1] >= 0 && ii[1] < ncell[1] &&
+            ii[2] >= 0 && ii[2] < ncell[2] ){
+          continue;
+	      }
+        double shift_v [3];
+        region.inter2Phys(shift_v, pbc_shift_d);
+        int cell_idx = collapse_index(jj, ncell);
+        std::vector<int> & cur_clist = clist[cell_idx];
+        for (int kk = 0; kk < cur_clist.size(); ++kk){
+          int p_idx = cur_clist[kk];
+          double shifted_coord [3];
+          out_c.push_back(in_c[p_idx*3+0] - shift_v[0]);
+          out_c.push_back(in_c[p_idx*3+1] - shift_v[1]);
+          out_c.push_back(in_c[p_idx*3+2] - shift_v[2]);
+          out_t.push_back(in_t[p_idx]);
+          mapping.push_back(p_idx);
+          // double phys[3];
+          // for (int dd = 0; dd < 3; ++dd) phys[dd] = in_c[p_idx*3+dd] - shift_v[dd];
+          // double inter[3];
+          // region.phys2Inter(inter, phys);
+          // if (  inter[0] >= 0 && inter[0] < 1 &&
+          // 	inter[1] >= 0 && inter[1] < 1 &&
+          // 	inter[2] >= 0 && inter[2] < 1 ){
+          //   std::cout << out_c.size()  / 3 << " "
+          // 	 << inter[0] << " " 
+          // 	 << inter[1] << " " 
+          // 	 << inter[2] << " " 
+          // 	 << std::endl;
+          //   std::cout << "err here inner" << std::endl;
+          //   exit(1);
+          // }	  
+        }
       }
     }
   }

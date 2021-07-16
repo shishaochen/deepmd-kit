@@ -82,6 +82,24 @@ REGISTER_OP("DescrptSeR")
     .Output("rij: T")
     .Output("nlist: int32"); 
 
+// 将模拟区域边界外、且在 rcut 距离内的原子镜像到对边和对角。
+// 输出：
+// - coord_cpy 存储所有原子的 3 维坐标，镜像后的原子坐标补在 coord 后面。
+// - type_cpy 存储所有原子的类别，镜像后的原子坐标补在 type 后面。
+// - idx_mapping 存储所有原子的编号映射，被镜像的原子编号补在原集合的后面。
+// 输出 & 输入：
+// - nall 所有原子（包括镜像原子）的数量，初值是不包括镜像原子的数量。
+// - mem_cpy 为了存储下 nall 个原子而实际使用的元素数量，基于输入的值倍增。
+// 输入：
+// - coord 存储所有原子的 3 维坐标。
+// - box 模拟区域，3*3 个元素，代表 XYZ 个轴向量。
+// - type 存储所有原子的类别。
+// - nloc 原子的数量。
+// - max_cpy_trial 最多倍增 mem_cpy 的次数。
+// - rcut_r 截断距离。
+// 返回值：
+// - 0 成功。
+// - 1 容量 mem_cpy 和 max_cpy_trial 不够。
 template<typename FPTYPE>
 static int
 _norm_copy_coord_cpu(
@@ -307,8 +325,8 @@ public:
     // OP_REQUIRES_OK(context, context->GetAttr("nall", &nall_f));
     deepmd::cum_sum (sec_a, sel_a);
     deepmd::cum_sum (sec_r, sel_r);
-    ndescrpt_a = sec_a.back() * 4;
-    ndescrpt_r = sec_r.back() * 1;
+    ndescrpt_a = sec_a.back() * 4;  // r, r@x, r@y, r@z
+    ndescrpt_r = sec_r.back() * 1;  // r
     ndescrpt = ndescrpt_a + ndescrpt_r;
     nnei_a = sec_a.back();
     nnei_r = sec_r.back();
@@ -823,9 +841,24 @@ private:
   int * nbor_list_dev = NULL;
 };
 
-
-
-
+// 将模拟区域边界外、且在 rcut 距离内的原子镜像到对边和对角。
+// 输出：
+// - coord_cpy 存储所有原子的 3 维坐标，镜像后的原子坐标补在 coord 后面。
+// - type_cpy 存储所有原子的类别，镜像后的原子坐标补在 type 后面。
+// - idx_mapping 存储所有原子的编号映射，被镜像的原子编号补在原集合的后面。
+// 输出 & 输入：
+// - nall 所有原子（包括镜像原子）的数量，初值是不包括镜像原子的数量。
+// - mem_cpy 为了存储下 nall 个原子而实际使用的元素数量，基于输入的值倍增。
+// 输入：
+// - coord 存储所有原子的 3 维坐标。
+// - box 模拟区域，3*3 个元素，代表 XYZ 个轴向量。
+// - type 存储所有原子的类别。
+// - nloc 原子的数量。
+// - max_cpy_trial 最多倍增 mem_cpy 的次数。
+// - rcut_r 截断距离。
+// 返回值：
+// - 0 成功。
+// - 1 容量 mem_cpy 和 max_cpy_trial 不够。
 template<typename FPTYPE>
 static int
 _norm_copy_coord_cpu(

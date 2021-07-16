@@ -418,11 +418,11 @@ toFaceDistance	(double * dd) const
 {
   double tmp[3];
   deepmd::cprod(boxt+3, boxt+6, tmp);
-  dd[0] = volume * deepmd::invsqrt(deepmd::dot3(tmp,tmp));
+  dd[0] = volume * deepmd::invsqrt(deepmd::dot3(tmp,tmp));  // 平行六面体垂直于 Y-Z 平面的高
   deepmd::cprod(boxt+6, boxt+0, tmp);
-  dd[1] = volume * deepmd::invsqrt(deepmd::dot3(tmp,tmp));
+  dd[1] = volume * deepmd::invsqrt(deepmd::dot3(tmp,tmp));  // 平行六面体垂直于 Z-X 平面的高
   deepmd::cprod(boxt+0, boxt+3, tmp);
-  dd[2] = volume * deepmd::invsqrt(deepmd::dot3(tmp,tmp));
+  dd[2] = volume * deepmd::invsqrt(deepmd::dot3(tmp,tmp));  // 平行六面体垂直于 X-Y 平面的高
 }
 
 // static int tmp_count = 0;

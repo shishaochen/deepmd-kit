@@ -6,6 +6,12 @@
 using namespace deepmd;
 
 // normalize coords
+// 对于 natom 个原子的坐标，对于周期性边界的轴向，调节为实际距离和镜像原子距离的较小者。
+// 输入 & 输出：
+// - coord 原子坐标。
+// 输入：
+// - natom 原子数量。
+// - region 模拟区域。
 template <typename FPTYPE>
 void
 deepmd::

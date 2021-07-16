@@ -226,6 +226,8 @@ def get_type_map(jdata):
 
 
 def get_sel(jdata, rcut):
+    '''获取每种原子的最大邻居数量。
+    '''
     max_rcut = get_rcut(jdata)
     type_map = get_type_map(jdata)
 

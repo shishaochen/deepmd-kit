@@ -2,15 +2,21 @@
 
 namespace deepmd{
 
+// 模拟区域。
 template<typename FPTYPE>
 struct Region
 {
-  FPTYPE * boxt;
-  FPTYPE * rec_boxt;
+  FPTYPE * boxt; // 用于内部坐标转世界坐标
+  FPTYPE * rec_boxt; // 用于世界坐标转内部坐标
   Region();
   ~Region();
 };
 
+// 从 3*3 数组 boxt 构建模拟区域。
+// 输出：
+// - region 模拟区域，包括世界坐标基和内部坐标基。
+// 输入：
+// - boxt 存储 XYZ 三个轴向量。
 template<typename FPTYPE>
 void
 init_region_cpu(
@@ -22,6 +28,12 @@ FPTYPE
 volume_cpu(
     const Region<FPTYPE> & region);
 
+// 将世界坐标转为内部坐标。
+// 输出：
+// - ri 内部坐标。
+// 输入：
+// - region 模拟区域。
+// - rp 世界坐标。
 template<typename FPTYPE>
 void
 convert_to_inter_cpu(
@@ -29,6 +41,12 @@ convert_to_inter_cpu(
     const Region<FPTYPE> & region,
     const FPTYPE * rp);
 
+// 将内部坐标转为世界坐标。
+// 输出：
+// - rp 内部坐标。
+// 输入：
+// - region 模拟区域。
+// - ri 世界坐标。
 template<typename FPTYPE>
 void
 convert_to_phys_cpu(

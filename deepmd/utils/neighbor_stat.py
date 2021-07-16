@@ -69,10 +69,10 @@ class NeighborStat():
         self.max_nbor_size = [0] * self.ntypes
 
         # for ii in tqdm(range(len(data.system_dirs)), desc = 'DEEPMD INFO    |-> deepmd.utils.neighbor_stat\t\t\tgetting neighbor status'):
-        for ii in range(len(data.system_dirs)):
-            for jj in data.data_systems[ii].dirs:
+        for ii in range(len(data.system_dirs)):  # 逐个系统
+            for jj in data.data_systems[ii].dirs:  # 逐个切片的数据目录
                 data_set = data.data_systems[ii]._load_set(jj)
-                for kk in range(np.array(data_set['type']).shape[0]):
+                for kk in range(np.array(data_set['type']).shape[0]):  # 逐个 frame/snapshot
                     mn, dt \
                         = run_sess(self.sub_sess, [self._max_nbor_size, self._min_nbor_dist], 
                                             feed_dict = {
