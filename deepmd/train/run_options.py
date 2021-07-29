@@ -11,7 +11,7 @@ from deepmd.env import get_tf_default_nthreads, tf, GLOBAL_CONFIG, global_float_
 from deepmd.loggers import set_log_handles
 
 if TYPE_CHECKING:
-    import horovod.tensorflow as HVD
+    import byteps.tensorflow as HVD
 
 
 __all__ = [
@@ -76,7 +76,7 @@ def _distributed_task_config(
 
     Parameters
     ----------
-    HVD : horovod.tensorflow
+    HVD : byteps.tensorflow
         Horovod TensorFlow module
     gpu_list : Optional[List[int]], optional
         the list of GPUs on each node, by default None
@@ -227,11 +227,11 @@ class RunOptions:
 
     def _try_init_distrib(self):
         try:
-            import horovod.tensorflow as HVD
+            import byteps.tensorflow as HVD
             HVD.init()
             self.is_distrib = _is_distributed(HVD)
         except ImportError:
-            log.warn("Switch to serial execution due to lack of horovod module.")
+            log.warn("Switch to serial execution due to lack of byteps module.")
             self.is_distrib = False
 
         # Do real intialization

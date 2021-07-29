@@ -209,8 +209,8 @@ def set_log_handles(
 
     # * add console handler ************************************************************
     ch = logging.StreamHandler()
-    if MPI:
-        rank = MPI.COMM_WORLD.Get_rank()
+    if MPI or 'BYTEPS_LOCAL_RANK' in os.environ:
+        rank = MPI.COMM_WORLD.Get_rank() if MPI else int(os.environ['BYTEPS_LOCAL_RANK'])
         if mpi_log == "master":
             ch.setFormatter(CFORMATTER)
             ch.addFilter(_MPIMasterFilter(rank))
