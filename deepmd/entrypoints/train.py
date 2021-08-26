@@ -123,6 +123,7 @@ def _do_work(jdata: Dict[str, Any], run_opt: RunOptions):
     #  init random seed
     seed = jdata["training"].get("seed", None)
     if seed is not None:
+        seed += run_opt.my_rank
         seed = seed % (2 ** 32)
     np.random.seed(seed)
 
