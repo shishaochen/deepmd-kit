@@ -205,7 +205,7 @@ class DPTrainer (object):
                                       lr_param['stop_lr'],
                                       lr_param['decay_steps'])
         else :
-            raise RuntimeError('unknown learning_rate type ' + lr_type)        
+            raise RuntimeError('unknown learning_rate type ' + lr_type)
 
         # loss
         # infer loss type by fitting_type
@@ -255,6 +255,7 @@ class DPTrainer (object):
 
         # training
         tr_data = jdata['training']
+        self.scale_lr_type = lr_param.get("scale_lr_type", "linear")
         self.disp_file = tr_data.get('disp_file', 'lcurve.out')
         self.disp_freq = tr_data.get('disp_freq', 1000)
         self.save_freq = tr_data.get('save_freq', 1000)
@@ -357,7 +358,10 @@ class DPTrainer (object):
     def _build_training(self):
         trainable_variables = tf.trainable_variables()
         if self.run_opt.is_distrib:
-            optimizer = tf.train.AdamOptimizer(learning_rate = self.learning_rate*self.run_opt.world_size)
+            scale_coef = float(self.run_opt.world_size)
+            if self.scale_lr_type == 'sqrt':
+                scale_coef = np.sqrt(scale_coef).real
+            optimizer = tf.train.AdamOptimizer(learning_rate = self.learning_rate*scale_coef)
             optimizer = self.run_opt._HVD.DistributedOptimizer(optimizer)
         else:
             optimizer = tf.train.AdamOptimizer(learning_rate = self.learning_rate)
