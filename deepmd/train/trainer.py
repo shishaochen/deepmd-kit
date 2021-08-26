@@ -480,7 +480,7 @@ class DPTrainer (object):
             train_feed_dict = self.get_feed_dict(train_batch, is_training=True)
             # use tensorboard to visualize the training of deepmd-kit
             # it will takes some extra execution time to generate the tensorboard data
-            if self.tensorboard :
+            if self.tensorboard and (cur_batch % self.disp_freq == 0):
                 summary, _ = run_sess(self.sess, [summary_merged_op, self.train_op], feed_dict=train_feed_dict,
                                            options=prf_options, run_metadata=prf_run_metadata)
                 tb_train_writer.add_summary(summary, cur_batch)
