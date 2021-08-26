@@ -569,7 +569,7 @@ def training_args():  # ! modified by Ziyao: data configuration isolated.
     doc_profiling_file = 'Output file for profiling.'
     doc_tensorboard = 'Enable tensorboard'
     doc_tensorboard_log_dir = 'The log directory of tensorboard outputs'
-    doc_scale_lr_type = 'When parallel training or batch size scaled, how to alter learning rate. `linear` or `sqrt`.'
+    doc_scale_lr_type = 'When parallel training or batch size scaled, how to alter learning rate. `linear` or `sqrt`, default is `none`.'
 
     arg_training_data = training_data_args()
     arg_validation_data = validation_data_args()
@@ -590,7 +590,7 @@ def training_args():  # ! modified by Ziyao: data configuration isolated.
         Argument("profiling_file", str, optional=True, default='timeline.json', doc=doc_profiling_file),
         Argument("tensorboard", bool, optional=True, default=False, doc=doc_tensorboard),
         Argument("tensorboard_log_dir", str, optional=True, default='log', doc=doc_tensorboard_log_dir),
-        Argument("scale_lr_type", str, optional=True, default='linear', doc=doc_scale_lr_type),
+        Argument("scale_lr_type", str, optional=True, default='none', doc=doc_scale_lr_type),
     ]
 
     doc_training = 'The training options.'

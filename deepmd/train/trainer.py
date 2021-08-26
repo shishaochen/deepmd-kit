@@ -255,7 +255,7 @@ class DPTrainer (object):
 
         # training
         tr_data = jdata['training']
-        self.scale_lr_type = lr_param.get("scale_lr_type", "linear")
+        self.scale_lr_type = tr_data.get("scale_lr_type", "none")
         self.disp_file = tr_data.get('disp_file', 'lcurve.out')
         self.disp_freq = tr_data.get('disp_freq', 1000)
         self.save_freq = tr_data.get('save_freq', 1000)
@@ -358,10 +358,16 @@ class DPTrainer (object):
     def _build_training(self):
         trainable_variables = tf.trainable_variables()
         if self.run_opt.is_distrib:
-            scale_coef = float(self.run_opt.world_size)
-            if self.scale_lr_type == 'sqrt':
-                scale_coef = np.sqrt(scale_coef).real
-            optimizer = tf.train.AdamOptimizer(learning_rate = self.learning_rate*scale_coef)
+            if self.scale_lr_type == 'linear':
+                scale_coef = float(self.run_opt.world_size)
+                log.info('Scale learning rate by coef: %f', scale_coef)
+                optimizer = tf.train.AdamOptimizer(self.learning_rate*scale_coef)
+            elif self.scale_lr_type == 'sqrt':
+                scale_coef = np.sqrt(self.run_opt.world_size).real
+                log.info('Scale learning rate by coef: %f', scale_coef)
+                optimizer = tf.train.AdamOptimizer(self.learning_rate*scale_coef)
+            else:
+                optimizer = tf.train.AdamOptimizer(self.learning_rate)
             optimizer = self.run_opt._HVD.DistributedOptimizer(optimizer)
         else:
             optimizer = tf.train.AdamOptimizer(learning_rate = self.learning_rate)
