@@ -381,6 +381,8 @@ class DescrptSeA ():
                                                  suffix = suffix, 
                                                  reuse = reuse, 
                                                  trainable = self.trainable)
+        # self.dout shape is [nframes*natoms[2+type_i], self.ntypes*self.filter_neuron[-1]*self.n_axis_neuron] if not self.type_one_side and type_embedding is None. Otherwise, [nframes*natoms[0], self.filter_neuron[-1]*self.n_axis_neuron]
+        # self.qmat shape is [nframes*natoms[2+type_i], self.ntypes*self.filter_neuron[-1]*3] if not self.type_one_side and type_embedding is None. Otherwise, [nframes*natoms[0], self.filter_neuron[-1], 3]
 
         # only used when tensorboard was set as true
         tf.summary.histogram('embedding_net_output', self.dout)
@@ -473,22 +475,26 @@ class DescrptSeA ():
                                      [-1, natoms[2+type_i]* self.ndescrpt] )
                 inputs_i = tf.reshape(inputs_i, [-1, self.ndescrpt])  # shape is [nframes*natoms[2+type_i], self.ndescrpt]
                 layer, qmat = self._filter(tf.cast(inputs_i, self.filter_precision), type_i, name='filter_type_'+str(type_i)+suffix, natoms=natoms, reuse=reuse, trainable = trainable, activation_fn = self.filter_activation_fn)
+                # layer shape is [nframes*natoms[2+type_i], self.filter_neuron[-1]*self.n_axis_neuron]
+                # qmat shape is [nframes*natoms[2+type_i], self.filter_neuron[-1], 3]
                 layer = tf.reshape(layer, [tf.shape(inputs)[0], natoms[2+type_i] * self.get_dim_out()])
-                qmat  = tf.reshape(qmat,  [tf.shape(inputs)[0], natoms[2+type_i] * self.get_dim_rot_mat_1() * 3])
+                qmat  = tf.reshape(qmat,  [tf.shape(inputs)[0], natoms[2+type_i] * self.get_dim_rot_mat_1() * 3])  # shape is [nframes*natoms[2+type_i], self.filter_neuron[-1]*3]
                 output.append(layer)
                 output_qmat.append(qmat)
                 start_index += natoms[2+type_i]
         else :
             inputs_i = inputs
-            inputs_i = tf.reshape(inputs_i, [-1, self.ndescrpt])
+            inputs_i = tf.reshape(inputs_i, [-1, self.ndescrpt])  # shape is [nframes*natoms[0], self.ndescrpt]
             type_i = -1
             layer, qmat = self._filter(tf.cast(inputs_i, self.filter_precision), type_i, name='filter_type_all'+suffix, natoms=natoms, reuse=reuse, trainable = trainable, activation_fn = self.filter_activation_fn, type_embedding=type_embedding)
             layer = tf.reshape(layer, [tf.shape(inputs)[0], natoms[0] * self.get_dim_out()])
+            # layer shape is [nframes*natoms[0], self.filter_neuron[-1]*self.n_axis_neuron]
+            # qmat shape is [nframes*natoms[0], self.filter_neuron[-1], 3]
             qmat  = tf.reshape(qmat,  [tf.shape(inputs)[0], natoms[0] * self.get_dim_rot_mat_1() * 3])
             output.append(layer)
             output_qmat.append(qmat)
-        output = tf.concat(output, axis = 1)
-        output_qmat = tf.concat(output_qmat, axis = 1)
+        output = tf.concat(output, axis = 1)  # shape is [nframes*natoms[2+type_i], self.ntypes*self.filter_neuron[-1]*self.n_axis_neuron] if not self.type_one_side and type_embedding is None. Otherwise, [nframes*natoms[0], self.filter_neuron[-1]*self.n_axis_neuron]
+        output_qmat = tf.concat(output_qmat, axis = 1)  # shape is [nframes*natoms[2+type_i], self.ntypes*self.filter_neuron[-1]*3] if not self.type_one_side and type_embedding is None. Otherwise, [nframes*natoms[0], self.filter_neuron[-1], 3]
         return output, output_qmat
 
 
@@ -556,7 +562,7 @@ class DescrptSeA ():
         '''Concatenate `type_embedding` of neighbors to `xyz_scatter`.
 
         Args:
-        - xyz_scatter: shape is [nframes*X*self.sel_a[type_i], 1] where X is atom count of certain type
+        - xyz_scatter: shape is [nframes*natoms[0]*self.nnei, 1]
         - nframes: shape is []
         - natoms: shape is [1+1+self.ntypes]
         - type_embedding: shape is [self.ntypes, Y] where Y is the last number of jdata['type_embedding']['neuron'][-1]
@@ -565,11 +571,11 @@ class DescrptSeA ():
         nei_embed = tf.nn.embedding_lookup(type_embedding,tf.cast(self.nei_type,dtype=tf.int32)) #nnei*nchnl shape is [self.nnei, te_out_dim]
         nei_embed = tf.tile(nei_embed,(nframes*natoms[0],1))  # shape is [nframes*natoms[0]*self.nnei, te_out_dim]
         nei_embed = tf.reshape(nei_embed,[-1,te_out_dim])
-        embedding_input = tf.concat([xyz_scatter,nei_embed],1)  # shape is []
+        embedding_input = tf.concat([xyz_scatter,nei_embed],1)  # shape is [nframes*natoms[0]*self.nnei, 1+te_out_dim]
         if not self.type_one_side:
-            atm_embed = embed_atom_type(self.ntypes, natoms, type_embedding)
-            atm_embed = tf.tile(atm_embed,(1,self.nnei))
-            atm_embed = tf.reshape(atm_embed,[-1,te_out_dim])
+            atm_embed = embed_atom_type(self.ntypes, natoms, type_embedding)  # shape is [natoms[0], te_out_dim]
+            atm_embed = tf.tile(atm_embed,(1,self.nnei))  # shape is [natoms[0], self.nnei*te_out_dim]
+            atm_embed = tf.reshape(atm_embed,[-1,te_out_dim])  # shape is [natoms[0]*self.nnei, te_out_dim]
             embedding_input = tf.concat([embedding_input,atm_embed],1)  
         return embedding_input
 
@@ -596,13 +602,15 @@ class DescrptSeA ():
         input env matrix, returns G1^T.R
 
         Args:
-        - type_i (int): atom type ID of neighbor.
-        - type_input (int): atom type ID of center.
-        - inputs: shape is [nframes*natoms[2+type_input], self.ndescrpt] if `type_embedding` is not offered.
-        - start_index: start offset of `type_i` in env matrix of `type_i`.
-        - incrs_index: atom count of `type_i`.
+        - type_i (int): atom type ID of neighbor if type_embedding is None. Otherwise, value is 0.
+        - type_input (int): atom type ID of center if not self.type_one_side and type_embedding is None. Otherwise, value is -1.
+        - inputs: shape is [nframes*natoms[2+type_input], self.ndescrpt] if not self.type_one_side and type_embedding is None.
+            Otherwise, [nframes*natoms[0], self.ndescrpt]
+        - start_index: start offset of `type_i` in env matrix of `type_i` if type_embedding is None. Otherwise, value is 0.
+        - incrs_index: atom count of `type_i` if type_embedding is None. Otherwise, value is self.nnei_a.
         - nframes: shape is []
         - natoms: shape is [1+1+self.ntypes]
+        - type_embedding: shape is [self.ntypes, Y] where Y is the last number of jdata['type_embedding']['neuron'][-1] if offered.
         '''
         """
         outputs_size = [1] + self.filter_neuron
@@ -610,13 +618,13 @@ class DescrptSeA ():
         # with natom x (nei_type_i x 4)  
         inputs_i = tf.slice (inputs,
                              [ 0, start_index* 4],
-                             [-1, incrs_index* 4] )  # shape is [nframes*natoms[2+type_input], self.sel_a[type_i]*4]
+                             [-1, incrs_index* 4] )  # shape is [nframes*natoms[2+type_input], self.sel_a[type_i]*4] if not self.type_one_side and type_embedding is None. Otherwise, [nframes*natoms[0], self.nnei_a*4]
         shape_i = inputs_i.get_shape().as_list()
-        natom = tf.shape(inputs_i)[0]  # value is nframes*natoms[2+type_input]
+        natom = tf.shape(inputs_i)[0]  # value is nframes*natoms[2+type_input] if not self.type_one_side and type_embedding is None. Otherwise, nframes*natoms[0]
         # with (natom x nei_type_i) x 4
-        inputs_reshape = tf.reshape(inputs_i, [-1, 4])  # shape is [natom*self.sel_a[type_i], 4]
+        inputs_reshape = tf.reshape(inputs_i, [-1, 4])  # shape is [natom*self.sel_a[type_i], 4] if not self.type_one_side and type_embedding is None. Otherwise, [natom*self.nnei_a, 4]
         # with (natom x nei_type_i) x 1
-        xyz_scatter = tf.reshape(tf.slice(inputs_reshape, [0,0],[-1,1]),[-1,1])  # shape is [natom*self.sel_a[type_i], 1]
+        xyz_scatter = tf.reshape(tf.slice(inputs_reshape, [0,0],[-1,1]),[-1,1])  # shape is [natom*self.sel_a[type_i], 1] if not self.type_one_side and type_embedding is None. Otherwise, [natom*self.nnei_a, 1]
         if type_embedding is not None:
             type_embedding = tf.cast(type_embedding, self.filter_precision)
             xyz_scatter = self._concat_type_embedding(
@@ -674,9 +682,12 @@ class DescrptSeA ():
         '''Apply embedding net on atom with ID `type_input`.
 
         Args:
-        - inputs: shape is [nframes*natoms[2+type_input], self.ndescrpt]
-        - type_input (int): atom type ID.
+        - inputs: shape is [nframes*natoms[2+type_input], self.ndescrpt] if not self.type_one_side and type_embedding is None.
+            Otherwise, [nframes*natoms[0], self.ndescrpt]
+        - type_input (int): atom type ID if not self.type_one_side and type_embedding is None.
+            Otherwise, value is -1.
         - natoms: shape is [1+1+self.ntypes]
+        - type_embedding: shape is [self.ntypes, X] if offered. X=jdata['type_embedding']['neuron'][-1]
         '''
         nframes = tf.shape(tf.reshape(inputs, [-1, natoms[0], self.ndescrpt]))[0]
         # natom x (nei x 4)
@@ -699,7 +710,7 @@ class DescrptSeA ():
           start_index = 0
           type_i = 0
           # natom x 4 x outputs_size
-          if type_embedding is None:
+          if type_embedding is None: # self.type_one_side can be True or False
               for type_i in range(self.ntypes):
                   ret = self._filter_lower(
                       type_i, type_input,
@@ -713,12 +724,12 @@ class DescrptSeA ():
                       stddev = stddev,
                       bavg = bavg,
                       trainable = trainable,
-                      suffix = "_"+str(type_i))  # shape is [nframes*natoms[2+type_input], 4, self.filter_neuron[-1]]
+                      suffix = "_"+str(type_i))  # shape is [nframes*natoms[2+type_input], 4, self.filter_neuron[-1]] if not self.type_one_side. Otherwise, [nframes*natoms[0], 4, self.filter_neuron[-1]]
                   if type_i == 0:
-                      xyz_scatter_1 = ret  # shape is shape is [nframes*natoms[2+type_input], 4, self.filter_neuron[-1]]
+                      xyz_scatter_1 = ret  # shape is [nframes*natoms[2+type_input], 4, self.filter_neuron[-1]] if not self.type_one_side. Otherwise, [nframes*natoms[0], 4, self.filter_neuron[-1]]
                   elif (type_input, type_i) not in self.exclude_types:
                       # add zero is meaningless; skip
-                      xyz_scatter_1+= ret  # shape is shape is [nframes*natoms[2+type_input], 4, self.filter_neuron[-1]]
+                      xyz_scatter_1+= ret  # shape is [nframes*natoms[2+type_input], 4, self.filter_neuron[-1]] if not self.type_one_side. Otherwise, [nframes*natoms[0], 4, self.filter_neuron[-1]]
                   start_index += self.sel_a[type_i]
           else :
               xyz_scatter_1 = self._filter_lower(
@@ -732,7 +743,7 @@ class DescrptSeA ():
                   activation_fn = activation_fn,
                   stddev = stddev,
                   bavg = bavg,
-                  trainable = trainable)
+                  trainable = trainable)  # shape is [natom, 4, self.filter_neuron[-1]]
           # natom x nei x outputs_size
           # xyz_scatter = tf.concat(xyz_scatter_total, axis=1)
           # natom x nei x 4
@@ -741,16 +752,16 @@ class DescrptSeA ():
           # xyz_scatter_1 = tf.matmul(inputs_reshape, xyz_scatter, transpose_a = True)
           xyz_scatter_1 = xyz_scatter_1 * (4.0 / shape[1])
           # natom x 4 x outputs_size_2
-          xyz_scatter_2 = tf.slice(xyz_scatter_1, [0,0,0],[-1,-1,outputs_size_2])  # shape is shape is [nframes*natoms[2+type_input], 4, outputs_size_2]
+          xyz_scatter_2 = tf.slice(xyz_scatter_1, [0,0,0],[-1,-1,outputs_size_2])  # shape is shape is [nframes*natoms[2+type_input], 4, outputs_size_2] if not self.type_one_side and type_embedding is None. Otherwise, [nframes*natoms[0], 4, outputs_size_2]
           # # natom x 3 x outputs_size_2
           # qmat = tf.slice(xyz_scatter_2, [0,1,0], [-1, 3, -1])
           # natom x 3 x outputs_size_1
-          qmat = tf.slice(xyz_scatter_1, [0,1,0], [-1, 3, -1])
+          qmat = tf.slice(xyz_scatter_1, [0,1,0], [-1, 3, -1])  # shape is [nframes*natoms[2+type_i], 3, self.filter_neuron[-1]] if not self.type_one_side and type_embedding is None. Otherwise, [nframes*natoms[0], 3, self.filter_neuron[-1]]
           # natom x outputs_size_1 x 3
-          qmat = tf.transpose(qmat, perm = [0, 2, 1])
+          qmat = tf.transpose(qmat, perm = [0, 2, 1])  # shape is [nframes*natoms[2+type_i], self.filter_neuron[-1], 3] if not self.type_one_side and type_embedding is None. Otherwise, [nframes*natoms[0], self.filter_neuron[-1], 3]
           # natom x outputs_size x outputs_size_2
-          result = tf.matmul(xyz_scatter_1, xyz_scatter_2, transpose_a = True)
+          result = tf.matmul(xyz_scatter_1, xyz_scatter_2, transpose_a = True)  # shape is [nframes*natoms[2+type_i], self.filter_neuron[-1], outputs_size_2] if not self.type_one_side and type_embedding is None. Otherwise, [nframes*natoms[0], self.filter_neuron[-1], outputs_size_2]
           # natom x (outputs_size x outputs_size_2)
-          result = tf.reshape(result, [-1, outputs_size_2 * outputs_size[-1]])
+          result = tf.reshape(result, [-1, outputs_size_2 * outputs_size[-1]])  # shape is [nframes*natoms[2+type_i], self.filter_neuron[-1]*outputs_size_2] if not self.type_one_side and type_embedding is None. Otherwise, [nframes*natoms[0], self.filter_neuron[-1]*outputs_size_2]
 
         return result, qmat
