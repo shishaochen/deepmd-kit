@@ -207,6 +207,20 @@ class DPTrainer (object):
         else :
             raise RuntimeError('unknown learning_rate type ' + lr_type)
 
+        # optimizer
+        opt_param = jdata.get('optimizer', {'type': 'adam', 'scale_lr_type': 'linear'})
+        opt_type = opt_param['type']
+        if opt_type == 'adam':
+            self.opt_constructor = tf.train.AdamOptimizer
+        elif opt_type == 'adadelta':
+            self.opt_constructor = tf.train.AdadeltaOptimizer
+        elif opt_type == 'momentum':
+            self.opt_constructor = tf.train.MomentumOptimizer
+        else:
+            raise ValueError('Illegal optimizer type: %s' % opt_type)
+        self.opt_constructor_args = {k: v for k, v in opt_param.items() if k != 'type'}
+        self.scale_lr_type = self.opt_constructor_args.pop('scale_lr_type')
+
         # loss
         # infer loss type by fitting_type
         try :
@@ -255,7 +269,6 @@ class DPTrainer (object):
 
         # training
         tr_data = jdata['training']
-        self.scale_lr_type = tr_data.get("scale_lr_type", "none")
         self.disp_file = tr_data.get('disp_file', 'lcurve.out')
         self.disp_freq = tr_data.get('disp_freq', 1000)
         self.save_freq = tr_data.get('save_freq', 1000)
@@ -357,20 +370,21 @@ class DPTrainer (object):
 
     def _build_training(self):
         trainable_variables = tf.trainable_variables()
+        log.info('Optimizer type: %s', self.opt_constructor)
         if self.run_opt.is_distrib:
             if self.scale_lr_type == 'linear':
                 scale_coef = float(self.run_opt.world_size)
                 log.info('Scale learning rate by coef: %f', scale_coef)
-                optimizer = tf.train.AdamOptimizer(self.learning_rate*scale_coef)
+                optimizer = self.opt_constructor(self.learning_rate*scale_coef, **self.opt_constructor_args)
             elif self.scale_lr_type == 'sqrt':
                 scale_coef = np.sqrt(self.run_opt.world_size).real
                 log.info('Scale learning rate by coef: %f', scale_coef)
-                optimizer = tf.train.AdamOptimizer(self.learning_rate*scale_coef)
+                optimizer = self.opt_constructor(self.learning_rate*scale_coef, **self.opt_constructor_args)
             else:
-                optimizer = tf.train.AdamOptimizer(self.learning_rate)
+                optimizer = self.opt_constructor(self.learning_rate, **self.opt_constructor_args)
             optimizer = self.run_opt._HVD.DistributedOptimizer(optimizer)
         else:
-            optimizer = tf.train.AdamOptimizer(learning_rate = self.learning_rate)
+            optimizer = self.opt_constructor(self.learning_rate, **self.opt_constructor_args)
         apply_op = optimizer.minimize(loss=self.l2_l,
                                       global_step=self.global_step,
                                       var_list=trainable_variables,

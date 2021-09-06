@@ -484,6 +484,50 @@ def loss_args():
     return ca
 
 
+def optimizer_adam():
+    doc_beta1 = 'The exponential decay rate for the 1st moment estimates.'
+    doc_beta2 = 'The exponential decay rate for the 2nd moment estimates.'
+    return [
+        Argument('beta1', [float, int], optional = True, default = 0.9, doc = doc_beta1),
+        Argument('beta2', [float, int], optional = True, default = 0.999, doc = doc_beta2),
+    ]
+
+def optimizer_adadelta():
+    doc_rho = 'The decay rate.'
+    return [
+        Argument('rho', [float, int], optional = True, default = 0.95, doc = doc_rho),
+    ]
+
+def optimizer_momentum():
+    doc_momentum = 'The momentum.'
+    doc_use_nesterov = 'This implementation always computes gradients at the value of the variable(s) passed to the optimizer.'
+    return [
+        Argument('momentum', [float, int], optional = False, doc = doc_momentum),
+        Argument('use_nesterov', bool, optional = True, default = False, doc = doc_use_nesterov),
+    ]
+
+def optimizer_variant_type_args():
+    doc_optimizer = 'The type of optimzier. Each kind of optimizer may require different arguments.'
+    return Variant('type', [
+                       Argument('adam', dict, optimizer_adam()),
+                       Argument('adadelta', dict, optimizer_adadelta()),
+                       Argument('momentum', dict, optimizer_momentum()),
+                   ],
+                   optional = True,
+                   default_tag = 'adam',
+                   doc = doc_optimizer)
+
+def optimizer_args():
+    doc_scale_lr_type = 'When parallel training or batch size scaled, how to alter learning rate. Valid values are `linear`(default), `sqrt` or `none`.'
+    doc_optimizer = 'The definition of optimizer. Valid types are `adam` and `momentum`.'
+    oa = Argument('optimizer', dict,
+                  [Argument("scale_lr_type", str, optional=True, default='linear', doc=doc_scale_lr_type)],
+                  [optimizer_variant_type_args()],
+                  optional = True,
+                  doc = doc_optimizer)
+    return oa
+
+
 #  --- Training configurations: --- #
 def training_data_args():  # ! added by Ziyao: new specification style for data systems.
     link_sys = make_link("systems", "training/training_data/systems")
@@ -569,7 +613,6 @@ def training_args():  # ! modified by Ziyao: data configuration isolated.
     doc_profiling_file = 'Output file for profiling.'
     doc_tensorboard = 'Enable tensorboard'
     doc_tensorboard_log_dir = 'The log directory of tensorboard outputs'
-    doc_scale_lr_type = 'When parallel training or batch size scaled, how to alter learning rate. `linear` or `sqrt`, default is `none`.'
 
     arg_training_data = training_data_args()
     arg_validation_data = validation_data_args()
@@ -590,7 +633,6 @@ def training_args():  # ! modified by Ziyao: data configuration isolated.
         Argument("profiling_file", str, optional=True, default='timeline.json', doc=doc_profiling_file),
         Argument("tensorboard", bool, optional=True, default=False, doc=doc_tensorboard),
         Argument("tensorboard_log_dir", str, optional=True, default='log', doc=doc_tensorboard_log_dir),
-        Argument("scale_lr_type", str, optional=True, default='none', doc=doc_scale_lr_type),
     ]
 
     doc_training = 'The training options.'
@@ -651,9 +693,10 @@ def normalize(data):
     ma = model_args()
     lra = learning_rate_args()
     la = loss_args()
+    oa = optimizer_args()
     ta = training_args()
 
-    base = Argument("base", dict, [ma, lra, la, ta])
+    base = Argument("base", dict, [ma, lra, la, oa, ta])
     data = base.normalize_value(data, trim_pattern="_*")
     base.check_value(data, strict=True)
 
