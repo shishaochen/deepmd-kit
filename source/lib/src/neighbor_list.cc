@@ -42,14 +42,17 @@ expand_index (std::vector<int > &		o_idx,
 }
 
 // 构建 Cell 列表，存储在 clist 中。索引是 Cell 唯一编号，值是本 Cell 持有的所有原子编号。
-// coord 中是所有原子铺开的 3 维坐标。
-// nloc 目标原子数量。
-// nat_stt 模拟区域的起始格点编号。
-// nat_end 模拟区域的终止格点编号。
-// ext_stt 扩展区域的起始格点编号。
-// ext_end 扩展区域的终止格点编号。
-// region 是模拟区域的工具类。
-// global_grid 是模拟区域在 X Y Z 三个维度上的 Cell 数量。
+// 输出：
+// - clist 是盒子内的原子构成的 Cell 列表。
+// 输入：
+// - coord 中是所有原子铺开的 3 维坐标。
+// - nloc 目标原子数量。
+// - nat_stt 模拟区域的起始格点编号。
+// - nat_end 模拟区域的终止格点编号。
+// - ext_stt 扩展区域的起始格点编号。
+// - ext_end 扩展区域的终止格点编号。
+// - region 是模拟区域的工具类。
+// - global_grid 是模拟区域在 X Y Z 三个维度上的 Cell 数量。
 void 
 build_clist (std::vector<std::vector<int > > &	clist,
 	     const std::vector<double > &	coord,
