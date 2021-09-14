@@ -212,10 +212,14 @@ class DPTrainer (object):
         opt_type = opt_param['type']
         if opt_type == 'adam':
             self.opt_constructor = tf.train.AdamOptimizer
+        elif opt_type == 'adagrad':
+            self.opt_constructor = tf.train.AdagradOptimizer
         elif opt_type == 'adadelta':
             self.opt_constructor = tf.train.AdadeltaOptimizer
         elif opt_type == 'momentum':
             self.opt_constructor = tf.train.MomentumOptimizer
+        elif opt_type == 'rmsprop':
+            self.opt_constructor = tf.train.RMSPropOptimizer
         else:
             raise ValueError('Illegal optimizer type: %s' % opt_type)
         self.opt_constructor_args = {k: v for k, v in opt_param.items() if k != 'type'}

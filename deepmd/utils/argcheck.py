@@ -488,22 +488,34 @@ def optimizer_adam():
     doc_beta1 = 'The exponential decay rate for the 1st moment estimates.'
     doc_beta2 = 'The exponential decay rate for the 2nd moment estimates.'
     return [
-        Argument('beta1', [float, int], optional = True, default = 0.9, doc = doc_beta1),
-        Argument('beta2', [float, int], optional = True, default = 0.999, doc = doc_beta2),
+        Argument('beta1', float, optional = True, default = 0.9, doc = doc_beta1),
+        Argument('beta2', float, optional = True, default = 0.999, doc = doc_beta2),
     ]
 
 def optimizer_adadelta():
     doc_rho = 'The decay rate.'
     return [
-        Argument('rho', [float, int], optional = True, default = 0.95, doc = doc_rho),
+        Argument('rho', float, optional = True, default = 0.95, doc = doc_rho),
+    ]
+
+def optimizer_adagrad():
+    doc_iav = 'Starting value for the accumulators, must be positive.'
+    return [
+        Argument('initial_accumulator_value', float, optional = True, default = 0.1, doc = doc_iav),
     ]
 
 def optimizer_momentum():
     doc_momentum = 'The momentum.'
     doc_use_nesterov = 'This implementation always computes gradients at the value of the variable(s) passed to the optimizer.'
     return [
-        Argument('momentum', [float, int], optional = False, doc = doc_momentum),
+        Argument('momentum', float, optional = False, doc = doc_momentum),
         Argument('use_nesterov', bool, optional = True, default = False, doc = doc_use_nesterov),
+    ]
+
+def optimizer_rmsprop():
+    doc_decay = 'Discounting factor for the history/coming gradient.'
+    return [
+        Argument('decay', float, optional = True, default = 0.9, doc = doc_decay),
     ]
 
 def optimizer_variant_type_args():
@@ -511,7 +523,9 @@ def optimizer_variant_type_args():
     return Variant('type', [
                        Argument('adam', dict, optimizer_adam()),
                        Argument('adadelta', dict, optimizer_adadelta()),
+                       Argument('adagrad', dict, optimizer_adagrad()),
                        Argument('momentum', dict, optimizer_momentum()),
+                       Argument('rmsprop', dict, optimizer_rmsprop()),
                    ],
                    optional = True,
                    default_tag = 'adam',
