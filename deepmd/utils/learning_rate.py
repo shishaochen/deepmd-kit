@@ -2,6 +2,7 @@ import numpy as np
 from deepmd.env import tf
 from deepmd.common import ClassArg
 
+
 class LearningRateExp (object) :
     """
     The exponentially decaying learning rate.
@@ -93,3 +94,50 @@ class LearningRateExp (object) :
         """
         return self.start_lr_ * np.power (self.decay_rate_, (step // self.decay_steps_))
 
+
+class LearningRateFixed(object):
+    """
+    The fixed learning rate.
+    """
+    def __init__ (self, value: float) -> None:
+        """
+        Constructor
+        
+        Parameters
+        ----------
+        value
+                learning rate
+        """
+        self._value = value
+        self.decay_steps_ = 0
+        self.decay_rate_ = 0.
+
+    def build(self, global_step: tf.Tensor, stop_step: int = None) -> tf.Tensor :
+        """
+        Build the learning rate
+
+        Parameters
+        ----------
+        global_step
+                The tf Tensor prividing the global training step
+        stop_step
+                Not used.
+
+        Returns
+        -------
+        learning_rate
+                The learning rate
+        """
+        return tf.convert_to_tensor(self._value)
+
+    def start_lr(self) -> float:
+        """
+        Get the start lr
+        """
+        return self._value
+
+    def value (self, step: int) -> float:
+        """
+        Get the lr at a certain step
+        """
+        return self._value

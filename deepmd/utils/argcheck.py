@@ -398,13 +398,21 @@ def learning_rate_exp():
         Argument("decay_steps", int, optional = True, default = 5000, doc = doc_decay_steps)
     ]
     return args
-    
+
+
+def learning_rate_fixed():
+    doc_start_value = 'The learning rate during training.'
+    args = [Argument("value", float, optional = False, doc = doc_start_value)]
+    return args
+
 
 def learning_rate_variant_type_args():
     doc_lr = 'The type of the learning rate.'
 
-    return Variant("type", 
-                   [Argument("exp", dict, learning_rate_exp())],
+    return Variant("type", [
+                        Argument("exp", dict, learning_rate_exp()),
+                        Argument("fixed", dict, learning_rate_fixed())
+                   ],
                    optional = True,
                    default_tag = 'exp',
                    doc = doc_lr)

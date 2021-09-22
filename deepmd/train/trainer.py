@@ -21,7 +21,7 @@ from deepmd.descriptor import DescrptHybrid
 from deepmd.model import EnerModel, WFCModel, DipoleModel, PolarModel, GlobalPolarModel
 from deepmd.loss import EnerStdLoss, EnerDipoleLoss, TensorLoss
 from deepmd.utils.errors import GraphTooLargeError
-from deepmd.utils.learning_rate import LearningRateExp
+from deepmd.utils.learning_rate import LearningRateExp, LearningRateFixed
 from deepmd.utils.neighbor_stat import NeighborStat
 from deepmd.utils.sess import run_sess
 from deepmd.utils.type_embed import TypeEmbedNet
@@ -204,6 +204,8 @@ class DPTrainer (object):
             self.lr = LearningRateExp(lr_param['start_lr'],
                                       lr_param['stop_lr'],
                                       lr_param['decay_steps'])
+        elif lr_type == 'fixed':
+            self.lr = LearningRateFixed(lr_param['value'])
         else :
             raise RuntimeError('unknown learning_rate type ' + lr_type)
 
