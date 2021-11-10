@@ -1477,6 +1477,14 @@ training:
 
         Output file for profiling.
 
+    .. _`training/profiling_freq`: 
+
+    profiling_freq: 
+        | type: ``int``, optional, default: ``1``
+        | argument path: ``training/profiling_freq``
+
+        The frequency of writing timeline files.
+
     .. _`training/tensorboard`: 
 
     tensorboard: 

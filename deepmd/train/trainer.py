@@ -224,6 +224,7 @@ class DPTrainer (object):
         self.timing_in_training  = tr_data.get('time_training', True)
         self.profiling = self.run_opt.is_chief and tr_data.get('profiling', False)
         self.profiling_file = tr_data.get('profiling_file', 'timeline.json')
+        self.profiling_freq = tr_data.get('profiling_freq', 1)
         self.tensorboard = self.run_opt.is_chief and tr_data.get('tensorboard', False)
         self.tensorboard_log_dir = tr_data.get('tensorboard_log_dir', 'log')
         self.tensorboard_freq = tr_data.get('tensorboard_freq', 1)
@@ -426,12 +427,6 @@ class DPTrainer (object):
                   self.lr.value(stop_batch)) 
         )
 
-        prf_options = None
-        prf_run_metadata = None
-        if self.profiling:
-            prf_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-            prf_run_metadata = tf.RunMetadata()
-
         # set tensorboard execution environment
         if self.tensorboard:
             summary_merged_op = tf.summary.merge_all()
@@ -456,7 +451,12 @@ class DPTrainer (object):
         
         train_time = 0
 
-        while cur_batch < stop_batch :
+        while cur_batch < stop_batch:
+            prf_options = None
+            prf_run_metadata = None
+            if self.profiling and (cur_batch % self.profiling_freq == 0):
+                prf_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+                prf_run_metadata = tf.RunMetadata()
 
             # first round validation:
             train_batch = train_data.get_batch()
@@ -479,6 +479,13 @@ class DPTrainer (object):
                               options=prf_options, run_metadata=prf_run_metadata)
             if self.timing_in_training: toc = time.time()
             if self.timing_in_training: train_time += toc - tic
+            
+            if self.profiling and (cur_batch % self.profiling_freq == 0):
+                fetched_timeline = timeline.Timeline(prf_run_metadata.step_stats)
+                chrome_trace = fetched_timeline.generate_chrome_trace_format()
+                with open(f'{cur_batch}-{self.profiling_file}', 'w') as f:
+                    f.write(chrome_trace)
+
             cur_batch = run_sess(self.sess, self.global_step)
             self.cur_batch = cur_batch
 
@@ -518,11 +525,6 @@ class DPTrainer (object):
                     log.info("saved checkpoint %s" % self.save_ckpt)
         if self.run_opt.is_chief: 
             fp.close ()
-        if self.profiling and self.run_opt.is_chief :
-            fetched_timeline = timeline.Timeline(prf_run_metadata.step_stats)
-            chrome_trace = fetched_timeline.generate_chrome_trace_format()
-            with open(self.profiling_file, 'w') as f:
-                f.write(chrome_trace)
 
     def get_feed_dict(self, batch, is_training):
         feed_dict = {}
