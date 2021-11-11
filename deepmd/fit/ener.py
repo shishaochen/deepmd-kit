@@ -9,6 +9,7 @@ from deepmd.utils.network import one_layer, one_layer_rand_seed_shift
 from deepmd.descriptor import DescrptLocFrame
 from deepmd.descriptor import DescrptSeA
 from deepmd.utils.type_embed import embed_atom_type
+from deepmd.utils.conditional_jit import conditional_jit_scope
 
 from deepmd.env import global_cvt_2_tf_float
 from deepmd.env import GLOBAL_TF_FLOAT_PRECISION
@@ -432,11 +433,12 @@ class EnerFitting ():
                     type_bias_ae = 0.0
                 else :
                     type_bias_ae = bias_atom_e[type_i]
-                final_layer = self._build_lower(
-                    start_index, natoms[2+type_i], 
-                    inputs, fparam, aparam, 
-                    bias_atom_e=type_bias_ae, suffix='_type_'+str(type_i)+suffix, reuse=reuse
-                )
+                with conditional_jit_scope(separate_compiled_gradients=True):
+                    final_layer = self._build_lower(
+                        start_index, natoms[2+type_i], 
+                        inputs, fparam, aparam, 
+                        bias_atom_e=type_bias_ae, suffix='_type_'+str(type_i)+suffix, reuse=reuse
+                    )
                 # concat the results
                 if type_i < len(self.atom_ener) and self.atom_ener[type_i] is not None:                
                     zero_layer = self._build_lower(

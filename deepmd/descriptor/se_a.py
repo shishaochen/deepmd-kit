@@ -14,6 +14,7 @@ from deepmd.utils.tabulate import DPTabulate
 from deepmd.utils.type_embed import embed_atom_type
 from deepmd.utils.sess import run_sess
 from deepmd.utils.graph import load_graph_def, get_tensor_by_name_from_graph
+from deepmd.utils.conditional_jit import conditional_jit_scope
 from .descriptor import Descriptor
 from .se import DescrptSe
 
@@ -689,6 +690,7 @@ class DescrptSeA (DescrptSe):
           return op_module.tabulate_fusion(tf.cast(self.table.data[net], self.filter_precision), info, xyz_scatter, tf.reshape(inputs_i, [natom, shape_i[1]//4, 4]), last_layer_size = outputs_size[-1])  
         else:
           if (not is_exclude):
+            with conditional_jit_scope(separate_compiled_gradients=True):
               xyz_scatter = embedding_net(
                   xyz_scatter, 
                   self.filter_neuron, 
@@ -702,7 +704,7 @@ class DescrptSeA (DescrptSe):
                   trainable = trainable, 
                   uniform_seed = self.uniform_seed,
                   initial_variables = self.embedding_net_variables)
-              if (not self.uniform_seed) and (self.seed is not None): self.seed += self.seed_shift
+            if (not self.uniform_seed) and (self.seed is not None): self.seed += self.seed_shift
           else:
             # we can safely return the final xyz_scatter filled with zero directly
             return tf.cast(tf.fill((natom, 4, outputs_size[-1]), 0.), GLOBAL_TF_FLOAT_PRECISION)
