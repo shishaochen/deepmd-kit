@@ -222,6 +222,16 @@ def descrpt_se_r_args():
     ]
 
 
+@descrpt_args_plugin.register("nb")
+def descrpt_nb_args():
+    doc_sel = 'This parameter set the number of selected neighbors for each type of atom.'
+    doc_rcut = 'The cut-off radius.'
+    return [
+        Argument("sel", list, optional = True, default = "auto", doc = doc_sel),
+        Argument("rcut", float, optional = True, default = 6.0, doc = doc_rcut)
+    ]
+
+
 @descrpt_args_plugin.register("hybrid")
 def descrpt_hybrid_args():
     doc_list = f'A list of descriptor definitions'
