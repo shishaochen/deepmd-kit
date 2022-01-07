@@ -93,13 +93,12 @@ class DescrptNb(Descriptor):
                           atom_ener: tf.Tensor,
                           natoms: tf.Tensor
     ) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
-        [net_deriv] = tf.gradients(atom_ener, self.descrpt_out)
-        tf.summary.histogram('net_derivative', net_deriv)
-        net_deriv_reshape = tf.reshape(net_deriv, [-1, natoms[0] * self.ndescrpt])        
-        force = op_module.prod_force_nb(net_deriv_reshape,
+        [net_deriv] = tf.gradients(atom_ener, self.rij)
+        tf.summary.histogram('net_derivative', net_deriv)  
+        force = op_module.prod_force_nb(net_deriv,
                                         self.nlist,
                                         natoms)
-        virial, atom_virial = op_module.prod_virial_nb(net_deriv_reshape,
+        virial, atom_virial = op_module.prod_virial_nb(net_deriv,
                                                        self.rij,
                                                        self.nlist,
                                                        natoms)
