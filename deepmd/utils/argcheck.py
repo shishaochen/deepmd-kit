@@ -232,6 +232,20 @@ def descrpt_nb_args():
     ]
 
 
+@descrpt_args_plugin.register("nb_att")
+def descrpt_nb_att_args():
+    doc_sel = 'This parameter set the number of selected neighbors for each type of atom.'
+    doc_rcut = 'The cut-off radius.'
+    doc_qk_units = 'The output dimension of Q & K.'
+    doc_v_units = 'The output dimension of V.'
+    return [
+        Argument("sel", list, optional = True, default = "auto", doc = doc_sel),
+        Argument("rcut", float, optional = True, default = 6.0, doc = doc_rcut),
+        Argument("qk_units", int, optional = True, default = 10, doc = doc_qk_units),
+        Argument("v_units", int, optional = True, default = 5, doc = doc_v_units)
+    ]
+
+
 @descrpt_args_plugin.register("hybrid")
 def descrpt_hybrid_args():
     doc_list = f'A list of descriptor definitions'

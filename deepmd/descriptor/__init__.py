@@ -8,3 +8,4 @@ from .se_a_ef import DescrptSeAEf
 from .se_a_ef import DescrptSeAEfLower
 from .loc_frame import DescrptLocFrame
 from .nb import DescrptNb
+from .nb_att import DescrptNbAtt
