@@ -1,3 +1,4 @@
+from matplotlib.pyplot import axis
 import numpy as np
 
 from typing import Dict, List, Tuple
@@ -93,7 +94,8 @@ class DescrptSeAAtt(Descriptor):
 
         atype = tf.reshape(atype_, [-1])  # shape=[batch*nall]
         descrpt_reshape = tf.reshape(self.descrpt, [-1, self.nnei_a, 4])  # shape=[batch*nloc,self.nnei_a,4]
-        return self._pass_filter(atype, descrpt_reshape, reuse)
+        nlist = tf.reshape(self.nlist, [-1, self.nnei_a])  # shape=[batch*nloc,self.nnei_a]
+        return self._pass_filter(atype, descrpt_reshape, nlist, reuse)
 
     def prod_force_virial(self,
                           atom_ener: tf.Tensor,
@@ -119,6 +121,7 @@ class DescrptSeAAtt(Descriptor):
     def _pass_filter(self,
                      atype: tf.Tensor,  # shape=[batch*nall]
                      descrpt: tf.Tensor,  # shape=[batch*nloc,self.nnei_a,4]
+                     nlist: tf.Tensor,  # shape=[batch*nloc,self.nnei_a]
                      reuse: bool):
         with tf.variable_scope('filter_attention', reuse=reuse):
             self.q_mat = [None]*self.ntypes
@@ -139,13 +142,22 @@ class DescrptSeAAtt(Descriptor):
                         dtype=GLOBAL_TF_FLOAT_PRECISION,
                         name=f'v_mat_{type_i}_{type_j}')
 
+        # Convert from [1/r, x/r^2, y/r^2, z/r^2] to [r, x/r, y/r, z/r]
+        inv_rad = tf.slice(descrpt, [0, 0, 0], [-1, -1, 1])  # [1/r] while non-neighbor one is 0.
+        rel_xyz = tf.slice(descrpt, [0, 0, 1], [-1, -1, 3])  # [x/r^2, y/r^2, z/r^2] while non-neighbor one is 0.
+        padded = tf.expand_dims(nlist < 0, axis=-1)
+        ones = tf.ones_like(inv_rad, dtype=descrpt.dtype)
+        coeff = 1. / tf.where(padded, ones, inv_rad)  # [r] while non-neighbor one is 1.
+        radius = inv_rad * coeff * coeff  # [r] while non-neighbor one is 0.
+        rel_xyz = rel_xyz * coeff  # [x/r, y/r, z/r] while non-neighbor one is 0.
+
         # Embedding net with attention structure
         start_index_i = 0
         qkv_list = []
         for type_i in range(self.ntypes):
             nei_type_i = self.sel_a[type_i]
-            rad_i = tf.slice(descrpt, [0, start_index_i, 0], [-1, nei_type_i, 1])
-            xyz_i = tf.slice(descrpt, [0, start_index_i, 1], [-1, nei_type_i, 3])
+            rad_i = tf.slice(radius, [0, start_index_i, 0], [-1, nei_type_i, -1])
+            xyz_i = tf.slice(rel_xyz, [0, start_index_i, 0], [-1, nei_type_i, -1])
             start_index_j = start_index_i
             start_index_i += nei_type_i
 
@@ -161,8 +173,8 @@ class DescrptSeAAtt(Descriptor):
             v_list = []
             for type_j in range(type_i, self.ntypes):  # Avoid duplicated angles
                 nei_type_j = self.sel_a[type_j]
-                rad_j = tf.slice(descrpt, [0, start_index_j, 0], [-1, nei_type_j, 1])
-                xyz_j = tf.slice(descrpt, [0, start_index_j, 1], [-1, nei_type_j, 3])
+                rad_j = tf.slice(radius, [0, start_index_j, 0], [-1, nei_type_j, -1])
+                xyz_j = tf.slice(rel_xyz, [0, start_index_j, 0], [-1, nei_type_j, -1])
                 start_index_j += nei_type_j
 
                 ii = tf.repeat(rad_i, nei_type_j, axis=1)  # shape=[batch*nloc,nei_type_i*nei_type_j, 1]
