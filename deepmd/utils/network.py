@@ -189,7 +189,7 @@ def embedding_net(xx,
         variable_summaries(w, 'matrix_'+str(ii)+name_suffix)
 
         b = tf.get_variable('bias_'+str(ii)+name_suffix, 
-                            [1, outputs_size[ii]], 
+                            [outputs_size[ii]], 
                             precision,
                             b_initializer, 
                             trainable = trainable)
@@ -211,7 +211,7 @@ def embedding_net(xx,
                 scope = tf.get_variable_scope().name
                 idt_initializer = tf.constant_initializer(initial_variables[scope+'/idt_'+str(ii)+name_suffix])
             idt = tf.get_variable('idt_'+str(ii)+name_suffix, 
-                                  [1, outputs_size[ii]], 
+                                  [outputs_size[ii]], 
                                   precision,
                                   idt_initializer, 
                                   trainable = trainable)
