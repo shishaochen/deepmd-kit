@@ -350,7 +350,8 @@ class DescrptSeA (DescrptSe):
                mesh : tf.Tensor,
                input_dict : dict, 
                reuse : bool = None,
-               suffix : str = ''
+               suffix : str = '',
+               layer_collection = None
     ) -> tf.Tensor:
         """
         Build the computational graph for the descriptor
@@ -443,7 +444,8 @@ class DescrptSeA (DescrptSe):
                                                  input_dict,
                                                  suffix = suffix, 
                                                  reuse = reuse, 
-                                                 trainable = self.trainable)
+                                                 trainable = self.trainable,
+                                                 layer_collection = layer_collection)
 
         # only used when tensorboard was set as true
         tf.summary.histogram('embedding_net_output', self.dout)
@@ -513,7 +515,8 @@ class DescrptSeA (DescrptSe):
                      input_dict,
                      reuse = None,
                      suffix = '', 
-                     trainable = True) :
+                     trainable = True,
+                     layer_collection = None) :
         if input_dict is not None:
             type_embedding = input_dict.get('type_embedding', None)
         else:
@@ -528,7 +531,7 @@ class DescrptSeA (DescrptSe):
                                      [ 0, start_index*      self.ndescrpt],
                                      [-1, natoms[2+type_i]* self.ndescrpt] )
                 inputs_i = tf.reshape(inputs_i, [-1, self.ndescrpt])
-                layer, qmat = self._filter(tf.cast(inputs_i, self.filter_precision), type_i, name='filter_type_'+str(type_i)+suffix, natoms=natoms, reuse=reuse, trainable = trainable, activation_fn = self.filter_activation_fn)
+                layer, qmat = self._filter(tf.cast(inputs_i, self.filter_precision), type_i, name='filter_type_'+str(type_i)+suffix, natoms=natoms, reuse=reuse, trainable=trainable, activation_fn=self.filter_activation_fn, layer_collection=layer_collection)
                 layer = tf.reshape(layer, [tf.shape(inputs)[0], natoms[2+type_i] * self.get_dim_out()])
                 qmat  = tf.reshape(qmat,  [tf.shape(inputs)[0], natoms[2+type_i] * self.get_dim_rot_mat_1() * 3])
                 output.append(layer)
@@ -538,7 +541,7 @@ class DescrptSeA (DescrptSe):
             inputs_i = inputs
             inputs_i = tf.reshape(inputs_i, [-1, self.ndescrpt])
             type_i = -1
-            layer, qmat = self._filter(tf.cast(inputs_i, self.filter_precision), type_i, name='filter_type_all'+suffix, natoms=natoms, reuse=reuse, trainable = trainable, activation_fn = self.filter_activation_fn, type_embedding=type_embedding)
+            layer, qmat = self._filter(tf.cast(inputs_i, self.filter_precision), type_i, name='filter_type_all'+suffix, natoms=natoms, reuse=reuse, trainable=trainable, activation_fn=self.filter_activation_fn, type_embedding=type_embedding, layer_collection=layer_collection)
             layer = tf.reshape(layer, [tf.shape(inputs)[0], natoms[0] * self.get_dim_out()])
             qmat  = tf.reshape(qmat,  [tf.shape(inputs)[0], natoms[0] * self.get_dim_rot_mat_1() * 3])
             output.append(layer)
@@ -657,6 +660,7 @@ class DescrptSeA (DescrptSe):
             stddev = 1.0,
             trainable = True,
             suffix = '',
+            layer_collection = None
     ):
         """
         input env matrix, returns R.G
@@ -701,7 +705,8 @@ class DescrptSeA (DescrptSe):
                   seed = self.seed,
                   trainable = trainable, 
                   uniform_seed = self.uniform_seed,
-                  initial_variables = self.embedding_net_variables)
+                  initial_variables = self.embedding_net_variables,
+                  layer_collection = layer_collection)
               if (not self.uniform_seed) and (self.seed is not None): self.seed += self.seed_shift
           else:
             # we can safely return the final xyz_scatter filled with zero directly
@@ -727,7 +732,8 @@ class DescrptSeA (DescrptSe):
             bavg=0.0,
             name='linear', 
             reuse=None,
-            trainable = True):
+            trainable = True,
+            layer_collection = None):
         nframes = tf.shape(tf.reshape(inputs, [-1, natoms[0], self.ndescrpt]))[0]
         # natom x (nei x 4)
         shape = inputs.get_shape().as_list()
@@ -763,7 +769,8 @@ class DescrptSeA (DescrptSe):
                       stddev = stddev,
                       bavg = bavg,
                       trainable = trainable,
-                      suffix = "_"+str(type_i))
+                      suffix = "_"+str(type_i),
+                      layer_collection = layer_collection)
                   if type_i == 0:
                       xyz_scatter_1 = ret
                   elif (type_input, type_i) not in self.exclude_types:
@@ -782,7 +789,8 @@ class DescrptSeA (DescrptSe):
                   activation_fn = activation_fn,
                   stddev = stddev,
                   bavg = bavg,
-                  trainable = trainable)
+                  trainable = trainable,
+                  layer_collection = layer_collection)
           # natom x nei x outputs_size
           # xyz_scatter = tf.concat(xyz_scatter_total, axis=1)
           # natom x nei x 4

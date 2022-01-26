@@ -324,6 +324,11 @@ class DPTrainer (object):
         self.place_holders['natoms_vec']        = tf.placeholder(tf.int32,   [self.ntypes+2], name='t_natoms')
         self.place_holders['default_mesh']      = tf.placeholder(tf.int32,   [None], name='t_mesh')
         self.place_holders['is_training']       = tf.placeholder(tf.bool)
+
+        if layer_collection is not None:
+            batch_size = tf.shape(self.place_holders['box'])[0]
+            setattr(layer_collection, 'batch_size', batch_size)
+
         self.model_pred\
             = self.model.build (self.place_holders['coord'], 
                                 self.place_holders['type'], 
@@ -333,7 +338,8 @@ class DPTrainer (object):
                                 self.place_holders,
                                 self.frz_model,
                                 suffix = "", 
-                                reuse = False)
+                                reuse = False,
+                                layer_collection=layer_collection)
 
         self.l2_l, self.l2_more\
             = self.loss.build (self.learning_rate,
@@ -356,12 +362,10 @@ class DPTrainer (object):
         elif self.opt_type == 'kfac':
             import kfac
             logging.info('Building kfac.PeriodicInvCovUpdateKfacOpt ...')
-            batch_size = tf.shape(self.place_holders['box'])[0]
-            layer_collection.auto_register_layers(batch_size=batch_size)
             optimizer = kfac.PeriodicInvCovUpdateKfacOpt(
                 learning_rate=self.learning_rate,
                 layer_collection=layer_collection,
-                batch_size=batch_size,
+                batch_size=layer_collection.batch_size,
                 loss=self.l2_l,
                 dtype=GLOBAL_TF_FLOAT_PRECISION,
                 **self.opt_constructor_args

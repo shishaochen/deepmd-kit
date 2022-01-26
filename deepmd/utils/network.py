@@ -19,7 +19,8 @@ def one_layer(inputs,
               trainable = True,
               useBN = False, 
               uniform_seed = False,
-              initial_variables = None):
+              initial_variables = None,
+              layer_collection = None):
     with tf.variable_scope(name, reuse=reuse):
         shape = inputs.get_shape().as_list()
         w_initializer  = tf.random_normal_initializer(
@@ -45,6 +46,12 @@ def one_layer(inputs,
                             trainable = trainable)
         variable_summaries(b, 'bias')
         hidden = tf.matmul(inputs, w) + b
+        if layer_collection is not None:
+            num_uses = tf.shape(inputs)[0] // layer_collection.batch_size
+            layer_collection.register_fully_connected_multi(
+                params=(w, b), inputs=inputs, outputs=hidden,
+                num_uses=num_uses
+            )
         if activation_fn != None and use_timestep :
             idt_initializer = tf.random_normal_initializer(
                                     stddev=0.001,
@@ -65,6 +72,8 @@ def one_layer(inputs,
                 # return activation_fn(hidden_bn)
             else:
                 if use_timestep :
+                    if layer_collection is not None:
+                        layer_collection.register_generic(params=idt, batch_size=layer_collection.batch_size)
                     return tf.reshape(activation_fn(hidden), [-1, outputs_size]) * idt
                 else :
                     return tf.reshape(activation_fn(hidden), [-1, outputs_size])                    
@@ -93,7 +102,8 @@ def embedding_net(xx,
                   seed = None,
                   trainable = True, 
                   uniform_seed = False,
-                  initial_variables = None):
+                  initial_variables = None,
+                  layer_collection = None):
     r"""The embedding network.
 
     The embedding network function :math:`\mathcal{N}` is constructed by is the
@@ -185,7 +195,12 @@ def embedding_net(xx,
                             trainable = trainable)
         variable_summaries(b, 'bias_'+str(ii)+name_suffix)
 
-        hidden = tf.reshape(activation_fn(tf.matmul(xx, w) + b), [-1, outputs_size[ii]])
+        hidden = activation_fn(tf.matmul(xx, w) + b)
+        if layer_collection is not None:
+            num_uses = tf.shape(xx)[0] // layer_collection.batch_size
+            layer_collection.register_fully_connected_multi(
+                params=(w, b), inputs=xx, outputs=hidden, num_uses=num_uses
+            )
         if resnet_dt :
             idt_initializer = tf.random_normal_initializer(
                                   stddev=0.001, 
@@ -201,6 +216,8 @@ def embedding_net(xx,
                                   idt_initializer, 
                                   trainable = trainable)
             variable_summaries(idt, 'idt_'+str(ii)+name_suffix)
+            if layer_collection is not None:
+                layer_collection.register_generic(params=idt, batch_size=layer_collection.batch_size)
 
         if outputs_size[ii] == outputs_size[ii-1]:
             if resnet_dt :

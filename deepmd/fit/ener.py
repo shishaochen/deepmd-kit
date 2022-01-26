@@ -259,7 +259,8 @@ class EnerFitting ():
             aparam = None, 
             bias_atom_e = 0.0,
             suffix = '',
-            reuse = None
+            reuse = None, 
+            layer_collection = None
     ):
         # cut-out inputs
         inputs_i = tf.slice (inputs,
@@ -293,7 +294,8 @@ class EnerFitting ():
                     precision = self.fitting_precision,
                     trainable = self.trainable[ii],
                     uniform_seed = self.uniform_seed,
-                    initial_variables = self.fitting_net_variables)
+                    initial_variables = self.fitting_net_variables,
+                    layer_collection = layer_collection)
             else :
                 layer = one_layer(
                     layer,
@@ -305,7 +307,8 @@ class EnerFitting ():
                     precision = self.fitting_precision,
                     trainable = self.trainable[ii],
                     uniform_seed = self.uniform_seed,
-                    initial_variables = self.fitting_net_variables)
+                    initial_variables = self.fitting_net_variables,
+                    layer_collection = layer_collection)
             if (not self.uniform_seed) and (self.seed is not None): self.seed += self.seed_shift
         final_layer = one_layer(
             layer, 
@@ -318,7 +321,8 @@ class EnerFitting ():
             precision = self.fitting_precision, 
             trainable = self.trainable[-1],
             uniform_seed = self.uniform_seed,
-            initial_variables = self.fitting_net_variables)
+            initial_variables = self.fitting_net_variables,
+            layer_collection = layer_collection)
         if (not self.uniform_seed) and (self.seed is not None): self.seed += self.seed_shift
 
         return final_layer
@@ -330,7 +334,8 @@ class EnerFitting ():
                natoms : tf.Tensor,
                input_dict : dict = {},
                reuse : bool = None,
-               suffix : str = '', 
+               suffix : str = '',
+               layer_collection = None 
     ) -> tf.Tensor:
         """
         Build the computational graph for fitting net
@@ -435,14 +440,16 @@ class EnerFitting ():
                 final_layer = self._build_lower(
                     start_index, natoms[2+type_i], 
                     inputs, fparam, aparam, 
-                    bias_atom_e=type_bias_ae, suffix='_type_'+str(type_i)+suffix, reuse=reuse
+                    bias_atom_e=type_bias_ae, suffix='_type_'+str(type_i)+suffix, reuse=reuse,
+                    layer_collection=layer_collection
                 )
                 # concat the results
                 if type_i < len(self.atom_ener) and self.atom_ener[type_i] is not None:                
                     zero_layer = self._build_lower(
                         start_index, natoms[2+type_i], 
                         inputs_zero, fparam, aparam, 
-                        bias_atom_e=type_bias_ae, suffix='_type_'+str(type_i)+suffix, reuse=True
+                        bias_atom_e=type_bias_ae, suffix='_type_'+str(type_i)+suffix, reuse=True,
+                        layer_collection=layer_collection
                     )
                     final_layer += self.atom_ener[type_i] - zero_layer
                 final_layer = tf.reshape(final_layer, [tf.shape(inputs)[0], natoms[2+type_i]])
@@ -467,7 +474,8 @@ class EnerFitting ():
             final_layer = self._build_lower(
                 0, natoms[0], 
                 inputs, fparam, aparam, 
-                bias_atom_e=0.0, suffix=suffix, reuse=reuse
+                bias_atom_e=0.0, suffix=suffix, reuse=reuse,
+                layer_collection=layer_collection
             )
             outs = tf.reshape(final_layer, [tf.shape(inputs)[0], natoms[0]])
 

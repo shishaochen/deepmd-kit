@@ -116,7 +116,8 @@ class EnerModel() :
                input_dict,
                frz_model = None,
                suffix = '', 
-               reuse = None):
+               reuse = None,
+               layer_collection = None):
 
         with tf.variable_scope('model_attr' + suffix, reuse = reuse) :
             t_tmap = tf.constant(' '.join(self.type_map), 
@@ -163,7 +164,8 @@ class EnerModel() :
                                      mesh,
                                      input_dict,
                                      suffix = suffix,
-                                     reuse = reuse)
+                                     reuse = reuse,
+                                     layer_collection = layer_collection)
             dout = tf.identity(dout, name='o_descriptor')
         else:
             tf.constant(self.rcut,
@@ -189,7 +191,8 @@ class EnerModel() :
                                         natoms, 
                                         input_dict, 
                                         reuse = reuse, 
-                                        suffix = suffix)
+                                        suffix = suffix,
+                                        layer_collection = layer_collection)
 
         if self.srtab is not None :
             sw_lambda, sw_deriv \
