@@ -172,6 +172,11 @@ class DPTrainer (object):
         else :
             raise RuntimeError('unknown learning_rate type ' + lr_type)        
 
+        # optimizer
+        opt_param = jdata.get('optimizer', {'type': 'adam'})
+        self.opt_type = opt_param['type']
+        self.opt_constructor_args = {k: v for k, v in opt_param.items() if k != 'type'}
+
         # loss
         # infer loss type by fitting_type
         loss_param = jdata.get('loss', None)
@@ -290,9 +295,14 @@ class DPTrainer (object):
         else:
             tf.constant("original_model", name = 'model_type', dtype = tf.string)
 
+        layer_collection = None
+        if self.opt_type == 'kfac':
+            import kfac
+            layer_collection = kfac.LayerCollection()
+
         self._build_lr()
-        self._build_network(data)
-        self._build_training()
+        self._build_network(data, layer_collection)
+        self._build_training(layer_collection)
 
 
     def _build_lr(self):
@@ -301,7 +311,7 @@ class DPTrainer (object):
         self.learning_rate = self.lr.build(self.global_step, self.stop_batch)
         log.info("built lr")
 
-    def _build_network(self, data):        
+    def _build_network(self, data, layer_collection=None):        
         self.place_holders = {}
         if self.is_compress :
             for kk in ['coord', 'box']:
@@ -330,24 +340,38 @@ class DPTrainer (object):
                                self.place_holders['natoms_vec'], 
                                self.model_pred,
                                self.place_holders,
-                               suffix = "test")
+                               suffix = "test",
+                               layer_collection=layer_collection)
 
         log.info("built network")
 
-    def _build_training(self):
-        trainable_variables = tf.trainable_variables()
-        if self.run_opt.is_distrib:
+    def _build_training(self, layer_collection=None):
+        if self.run_opt.is_distrib:  # Only AdamOptimizer supports parallel training.
+            tmp_lr = self.learning_rate
             if self.scale_lr_coef > 1.:
                 log.info('Scale learning rate by coef: %f', self.scale_lr_coef)
-                optimizer = tf.train.AdamOptimizer(self.learning_rate*self.scale_lr_coef)
-            else:
-                optimizer = tf.train.AdamOptimizer(self.learning_rate)
+                tmp_lr = self.learning_rate*self.scale_lr_coef
+            optimizer = tf.train.AdamOptimizer(tmp_lr, **self.opt_constructor_args)
             optimizer = self.run_opt._HVD.DistributedOptimizer(optimizer)
+        elif self.opt_type == 'kfac':
+            import kfac
+            logging.info('Building kfac.PeriodicInvCovUpdateKfacOpt ...')
+            batch_size = tf.shape(self.place_holders['box'])[0]
+            layer_collection.auto_register_layers(batch_size=batch_size)
+            optimizer = kfac.PeriodicInvCovUpdateKfacOpt(
+                learning_rate=self.learning_rate,
+                layer_collection=layer_collection,
+                batch_size=batch_size,
+                loss=self.l2_l,
+                dtype=GLOBAL_TF_FLOAT_PRECISION,
+                **self.opt_constructor_args
+            )
         else:
             optimizer = tf.train.AdamOptimizer(learning_rate = self.learning_rate)
+
         apply_op = optimizer.minimize(loss=self.l2_l,
                                       global_step=self.global_step,
-                                      var_list=trainable_variables,
+                                      var_list=tf.trainable_variables(),
                                       name='train_step')
         train_ops = [apply_op] + self._extra_train_ops
         self.train_op = tf.group(*train_ops)

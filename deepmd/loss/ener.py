@@ -53,7 +53,8 @@ class EnerStdLoss () :
                natoms,
                model_dict,
                label_dict,
-               suffix):        
+               suffix,
+               layer_collection=None):        
         energy = model_dict['energy']
         force = model_dict['force']
         virial = model_dict['virial']
@@ -104,18 +105,28 @@ class EnerStdLoss () :
         more_loss = {}
         if self.has_e :
             l2_loss += atom_norm_ener * (pref_e * l2_ener_loss)
+            if layer_collection is not None:
+                layer_collection.register_squared_error_loss(prediction=energy, targets=energy_hat, name='l2_ener_loss', coeff=pref_e)
         more_loss['l2_ener_loss'] = l2_ener_loss
         if self.has_f :
             l2_loss += global_cvt_2_ener_float(pref_f * l2_force_loss)
+            if layer_collection is not None:
+                layer_collection.register_squared_error_loss(prediction=force_reshape, targets=force_hat_reshape, name='l2_force_loss', coeff=pref_f)
         more_loss['l2_force_loss'] = l2_force_loss
         if self.has_v :
             l2_loss += global_cvt_2_ener_float(atom_norm * (pref_v * l2_virial_loss))
+            if layer_collection is not None:
+                layer_collection.register_squared_error_loss(prediction=virial_reshape, targets=virial_hat_reshape, name='l2_virial_loss', coeff=pref_v)
         more_loss['l2_virial_loss'] = l2_virial_loss
         if self.has_ae :
             l2_loss += global_cvt_2_ener_float(pref_ae * l2_atom_ener_loss)
+            if layer_collection is not None:
+                layer_collection.register_squared_error_loss(prediction=atom_ener_reshape, targets=atom_ener_hat_reshape, name='l2_atom_ener_loss', coeff=pref_ae)
         more_loss['l2_atom_ener_loss'] = l2_atom_ener_loss
         if self.has_pf :
             l2_loss += global_cvt_2_ener_float(pref_pf * l2_pref_force_loss)
+            if layer_collection is not None:
+                raise ValueError('KFAC optimizer cannot handle `l2_pref_force_loss`!')
         more_loss['l2_pref_force_loss'] = l2_pref_force_loss
 
         # only used when tensorboard was set as true

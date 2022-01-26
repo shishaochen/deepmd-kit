@@ -531,6 +531,47 @@ def loss_args():
     return ca
 
 
+def optimizer_adam():
+    doc_beta1 = 'The exponential decay rate for the 1st moment estimates.'
+    doc_beta2 = 'The exponential decay rate for the 2nd moment estimates.'
+    return [
+        Argument('beta1', [float, int], optional = True, default = 0.9, doc = doc_beta1),
+        Argument('beta2', [float, int], optional = True, default = 0.999, doc = doc_beta2),
+    ]
+
+
+def optimizer_kfac():
+    doc_damping = 'This quantity times the identity matrix is ' \
+        + '(approximately) added to the curvature matrix (i.e. the Fisher or GGN) ' \
+        + 'before it is inverted multiplied by the gradient when computing the ' \
+        + '(raw) update.'
+    doc_momentum = 'The momentum.'
+    return [
+        Argument('damping', [float, int], optional = False, default = None, doc = doc_damping),
+        Argument('momentum', [float, int], optional = True, default = 0.9, doc = doc_momentum),
+    ]
+
+
+def optimizer_variant_type_args():
+    doc_optimizer = 'The type of optimzier. Each kind of optimizer may require different arguments.'
+    return Variant('type', [
+                       Argument('adam', dict, optimizer_adam()),
+                       Argument('kfac', dict, optimizer_kfac()),
+                   ],
+                   optional = True,
+                   default_tag = 'adam',
+                   doc = doc_optimizer)
+
+
+def optimizer_args():
+    doc_optimizer = 'The definition of optimizer. Valid types are `adam` and `kfac`.'
+    oa = Argument('optimizer', dict, [],
+                  [optimizer_variant_type_args()],
+                  optional = True,
+                  doc = doc_optimizer)
+    return oa
+
+
 #  --- Training configurations: --- #
 def training_data_args():  # ! added by Ziyao: new specification style for data systems.
     link_sys = make_link("systems", "training/training_data/systems")
@@ -698,9 +739,10 @@ def normalize(data):
     ma = model_args()
     lra = learning_rate_args()
     la = loss_args()
+    oa = optimizer_args()
     ta = training_args()
 
-    base = Argument("base", dict, [ma, lra, la, ta])
+    base = Argument("base", dict, [ma, lra, la, oa, ta])
     data = base.normalize_value(data, trim_pattern="_*")
     base.check_value(data, strict=True)
 
