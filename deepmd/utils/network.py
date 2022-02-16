@@ -1,7 +1,23 @@
+import logging
+from mimetypes import init
 import numpy as np
 
 from deepmd.env import tf
-from deepmd.env import GLOBAL_TF_FLOAT_PRECISION
+from deepmd.env import GLOBAL_NP_FLOAT_PRECISION, GLOBAL_TF_FLOAT_PRECISION
+
+class NpRandomNormal(object):
+
+    def __init__(self, mean=0, stddev=0.05, seed=None):
+        self.mean = mean
+        self.stddev = stddev
+        self.seed = seed
+        self._rs = np.random.RandomState(seed=self.seed)
+
+    def __call__(self, shape, dtype=GLOBAL_NP_FLOAT_PRECISION):
+        value = self._rs.normal(loc=self.mean, scale=self.stddev, size=shape)
+        if value.dtype != dtype:
+            value = value.astype(dtype)
+        return value
 
 def one_layer_rand_seed_shift():
     return 3
@@ -22,41 +38,44 @@ def one_layer(inputs,
               initial_variables = None):
     with tf.variable_scope(name, reuse=reuse):
         shape = inputs.get_shape().as_list()
-        w_initializer  = tf.random_normal_initializer(
+        w_initializer  = NpRandomNormal(
                             stddev=stddev / np.sqrt(shape[1] + outputs_size),
                             seed=seed if (seed is None or uniform_seed) else seed + 0)
-        b_initializer  = tf.random_normal_initializer(
+        b_initializer  = NpRandomNormal(
                             stddev=stddev,
                             mean=bavg,
                             seed=seed if (seed is None or uniform_seed) else seed + 1)
         if initial_variables is not None:
             w_initializer = tf.constant_initializer(initial_variables[name + '/matrix'])
             b_initializer = tf.constant_initializer(initial_variables[name + '/bias'])
-        w = tf.get_variable('matrix', 
-                            [shape[1], outputs_size], 
-                            precision,
-                            w_initializer, 
-                            trainable = trainable)
+        init_w = w_initializer([shape[1], outputs_size])
+        w = tf.get_variable(name='matrix',
+                            dtype=precision,
+                            initializer=init_w, 
+                            trainable=trainable)
+        logging.warning('[DP] %s=%s', w.name, init_w)
         variable_summaries(w, 'matrix')
-        b = tf.get_variable('bias', 
-                            [outputs_size], 
-                            precision,
-                            b_initializer, 
-                            trainable = trainable)
+        init_b = b_initializer([outputs_size])
+        b = tf.get_variable(name='bias', 
+                            dtype=precision,
+                            initializer=init_b, 
+                            trainable=trainable)
+        logging.warning('[DP] %s=%s', b.name, init_b)
         variable_summaries(b, 'bias')
         hidden = tf.matmul(inputs, w) + b
         if activation_fn != None and use_timestep :
-            idt_initializer = tf.random_normal_initializer(
+            idt_initializer = NpRandomNormal(
                                     stddev=0.001,
                                     mean=0.1,
                                     seed=seed if (seed is None or uniform_seed) else seed + 2)
             if initial_variables is not None:
                 idt_initializer = tf.constant_initializer(initial_variables[name + '/idt'])
-            idt = tf.get_variable('idt',
-                                  [outputs_size],
-                                  precision,
-                                  idt_initializer, 
-                                  trainable = trainable)
+            init_idt = idt_initializer([outputs_size])
+            idt = tf.get_variable(name='idt',
+                                  dtype=precision,
+                                  initializer=init_idt,
+                                  trainable=trainable)
+            logging.warning('[DP] %s=%s', idt.name, init_idt)
             variable_summaries(idt, 'idt')
         if activation_fn != None:
             if useBN:
@@ -158,11 +177,11 @@ def embedding_net(xx,
     outputs_size = [input_shape[1]] + network_size
 
     for ii in range(1, len(outputs_size)):
-        w_initializer = tf.random_normal_initializer(
+        w_initializer = NpRandomNormal(
                             stddev=stddev/np.sqrt(outputs_size[ii]+outputs_size[ii-1]), 
                             seed = seed if (seed is None or uniform_seed)  else seed + ii*3+0
                         )
-        b_initializer = tf.random_normal_initializer(
+        b_initializer = NpRandomNormal(
                             stddev=stddev, 
                             mean = bavg, 
                             seed = seed if (seed is None or uniform_seed) else seed + 3*ii+1
@@ -171,23 +190,24 @@ def embedding_net(xx,
             scope = tf.get_variable_scope().name
             w_initializer = tf.constant_initializer(initial_variables[scope+'/matrix_'+str(ii)+name_suffix])
             b_initializer = tf.constant_initializer(initial_variables[scope+'/bias_'+str(ii)+name_suffix])
-        w = tf.get_variable('matrix_'+str(ii)+name_suffix,
-                            [outputs_size[ii - 1], outputs_size[ii]], 
-                            precision,
-                            w_initializer,
-                            trainable = trainable)
+        init_w = w_initializer([outputs_size[ii - 1], outputs_size[ii]])
+        w = tf.get_variable(name='matrix_'+str(ii)+name_suffix, 
+                            dtype=precision,
+                            initializer=init_w,
+                            trainable=trainable)
         variable_summaries(w, 'matrix_'+str(ii)+name_suffix)
-
-        b = tf.get_variable('bias_'+str(ii)+name_suffix, 
-                            [1, outputs_size[ii]], 
-                            precision,
-                            b_initializer, 
-                            trainable = trainable)
+        logging.warning('[DP] %s=%s', w.name, init_w)
+        init_b = b_initializer([outputs_size[ii]])
+        b = tf.get_variable(name='bias_'+str(ii)+name_suffix,
+                            dtype=precision,
+                            initializer=init_b,
+                            trainable=trainable)
         variable_summaries(b, 'bias_'+str(ii)+name_suffix)
+        logging.warning('[DP] %s=%s', b.name, init_b)
 
         hidden = tf.reshape(activation_fn(tf.matmul(xx, w) + b), [-1, outputs_size[ii]])
         if resnet_dt :
-            idt_initializer = tf.random_normal_initializer(
+            idt_initializer = NpRandomNormal(
                                   stddev=0.001, 
                                   mean = 1.0, 
                                   seed = seed if (seed is None or uniform_seed) else seed + 3*ii+2
@@ -195,11 +215,12 @@ def embedding_net(xx,
             if initial_variables is not None:
                 scope = tf.get_variable_scope().name
                 idt_initializer = tf.constant_initializer(initial_variables[scope+'/idt_'+str(ii)+name_suffix])
+            init_idt = idt_initializer([outputs_size[ii]])
             idt = tf.get_variable('idt_'+str(ii)+name_suffix, 
-                                  [1, outputs_size[ii]], 
-                                  precision,
-                                  idt_initializer, 
-                                  trainable = trainable)
+                                  dtype=precision,
+                                  initializer=init_idt, 
+                                  trainable=trainable)
+            logging.warning('[DP] %s=%s', idt.name, init_idt)
             variable_summaries(idt, 'idt_'+str(ii)+name_suffix)
 
         if outputs_size[ii] == outputs_size[ii-1]:
